@@ -1351,7 +1351,7 @@ static int i2c_register_adapter(struct i2c_adapter *adap)
 
 	/* Set default timeout to 1 second if not already set */
 	if (adap->timeout == 0)
-		adap->timeout = HZ;
+		adap->timeout = 1000;
 
 	/* register soft irqs for Host Notify */
 	res = i2c_setup_host_notify_irq_domain(adap);
@@ -2014,7 +2014,7 @@ int __i2c_transfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
 
 		if (ret != -EAGAIN)
 			break;
-		if (time_after(jiffies, orig_jiffies + adap->timeout))
+		if (time_after(jiffies, orig_jiffies + msecs_to_jiffies(adap->timeout)))
 			break;
 	}
 
