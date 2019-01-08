@@ -1278,7 +1278,7 @@ void kgsl_device_snapshot_probe(struct kgsl_device *device, u32 size)
 	device->snapshot = NULL;
 	device->snapshot_faultcount = 0;
 	device->force_panic = false;
-	device->snapshot_crashdumper = true;
+	device->snapshot_crashdumper = false;
 	device->snapshot_legacy = false;
 
 	device->snapshot_atomic = false;
