@@ -978,8 +978,10 @@ KBUILD_LDFLAGS	+= --thinlto-cache-dir=.thinlto-cache
 else
 CC_FLAGS_LTO_CLANG := -flto
 endif
+ifdef CONFIG_LD_IS_LLD
+KBUILD_LDFLAGS += --lto-O3
+endif
 CC_FLAGS_LTO_CLANG += -fvisibility=default
-
 KBUILD_LDS_MODULE += $(srctree)/scripts/module-lto.lds
 
 # Set O3 optimization level for LTO
