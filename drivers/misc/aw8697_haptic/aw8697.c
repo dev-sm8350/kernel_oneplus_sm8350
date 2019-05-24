@@ -8000,6 +8000,7 @@ static int aw8697_haptic_init(struct aw8697 *aw8697)
     /* haptic audio */
     aw8697->haptic_audio.delay_val = 1;
     aw8697->haptic_audio.timer_val = 21318;
+    aw8697->level = 3;
     INIT_LIST_HEAD(&(aw8697->haptic_audio.ctr_list));
 
     hrtimer_init(&aw8697->haptic_audio.timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
