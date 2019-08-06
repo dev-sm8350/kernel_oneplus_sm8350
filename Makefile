@@ -1009,6 +1009,11 @@ endif
 CC_FLAGS_LTO_CLANG += -fvisibility=default
 
 KBUILD_LDS_MODULE += $(srctree)/scripts/module-lto.lds
+
+# Set O3 optimization level for LTO
+KBUILD_LDFLAGS	+= --plugin-opt=O3
+else
+KBUILD_LDFLAGS	+= -O3
 endif
 
 ifdef CONFIG_LTO
