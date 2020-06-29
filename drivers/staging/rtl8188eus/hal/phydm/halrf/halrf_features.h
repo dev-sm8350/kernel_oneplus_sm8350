@@ -23,8 +23,8 @@
  *
  *****************************************************************************/
 
-#ifndef	__HALRF_FEATURES_H__
-#define __HALRF_FEATURES
+#ifndef __HALRF_FEATURES_H__
+#define __HALRF_FEATURES_H__
 
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 
