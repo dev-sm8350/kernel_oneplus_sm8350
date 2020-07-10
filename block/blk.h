@@ -9,7 +9,7 @@
 #include "blk-mq-sched.h"
 
 /* Max future timer expiry for timeouts */
-#define BLK_MAX_TIMEOUT		(5 * HZ)
+#define BLK_MAX_TIMEOUT		(msecs_to_jiffies(5000))
 
 #ifdef CONFIG_DEBUG_FS
 extern struct dentry *blk_debugfs_root;
