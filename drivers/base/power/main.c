@@ -535,7 +535,7 @@ static void dpm_watchdog_set(struct dpm_watchdog *wd, struct device *dev)
 
 	timer_setup_on_stack(timer, dpm_watchdog_handler, 0);
 	/* use same timeout value for both suspend and resume */
-	timer->expires = jiffies + HZ * CONFIG_DPM_WATCHDOG_TIMEOUT;
+	timer->expires = jiffies + msecs_to_jiffies(1000) * CONFIG_DPM_WATCHDOG_TIMEOUT;
 	add_timer(timer);
 }
 
