@@ -85,7 +85,7 @@
 #define FASTRPC_SECURE_WAKE_SOURCE_CLIENT_NAME		"adsprpc-secure"
 #define FASTRPC_NON_SECURE_WAKE_SOURCE_CLIENT_NAME	"adsprpc-non_secure"
 
-#define RPC_TIMEOUT	(5 * HZ)
+#define RPC_TIMEOUT	msecs_to_jiffies(5000)
 #define BALIGN		128
 #define NUM_CHANNELS	4	/* adsp, mdsp, slpi, cdsp*/
 #define NUM_SESSIONS	13	/* max 12 compute, 1 cpz */
