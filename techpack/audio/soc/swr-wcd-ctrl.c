@@ -533,7 +533,7 @@ static int swrm_cmd_fifo_wr_cmd(struct swr_mstr_ctrl *swrm, u8 cmd_data,
 			usleep_range(10000, 10100);
 		else
 			wait_for_completion_timeout(&swrm->broadcast,
-						    (2 * HZ/10));
+						    (msecs_to_jiffies(2000)/10));
 	}
 err:
 	return ret;
