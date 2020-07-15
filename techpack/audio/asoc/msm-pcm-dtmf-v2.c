@@ -228,7 +228,7 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 
 	ret = wait_event_interruptible_timeout(prtd->out_wait,
 				(!list_empty(&prtd->out_queue)),
-				1 * HZ);
+				msecs_to_jiffies(1000));
 
 	if (ret > 0) {
 		if (fbytes <= DTMF_PKT_SIZE) {

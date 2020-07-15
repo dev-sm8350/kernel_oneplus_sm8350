@@ -2525,7 +2525,7 @@ static int msm_compr_wait_for_stream_avail(struct msm_compr_audio *prtd,
 	 * commands like flush or till a timeout of one second.
 	 */
 	rc = wait_event_timeout(prtd->wait_for_stream_avail,
-		prtd->stream_available || prtd->cmd_interrupt, 1 * HZ);
+		prtd->stream_available || prtd->cmd_interrupt, msecs_to_jiffies(1000));
 	pr_err("%s:prtd->stream_available %d, prtd->cmd_interrupt %d rc %d\n",
 		   __func__, prtd->stream_available, prtd->cmd_interrupt, rc);
 
