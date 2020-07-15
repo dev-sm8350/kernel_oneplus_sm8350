@@ -28,7 +28,7 @@
 #include <dsp/audio_cal_utils.h>
 #include "adsp_err.h"
 
-#define APR_TIMEOUT	(HZ)
+#define APR_TIMEOUT	(msecs_to_jiffies(5000))
 #define LSM_SAMPLE_RATE 16000
 #define QLSM_PARAM_ID_MINOR_VERSION 1
 #define QLSM_PARAM_ID_MINOR_VERSION_2 2
