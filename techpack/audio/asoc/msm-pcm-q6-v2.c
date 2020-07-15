@@ -69,7 +69,7 @@ struct msm_pcm_channel_map {
 };
 
 #define CMD_EOS_MIN_TIMEOUT_LENGTH  50
-#define CMD_EOS_TIMEOUT_MULTIPLIER  (HZ * 50)
+#define CMD_EOS_TIMEOUT_MULTIPLIER  (msecs_to_jiffies(50000))
 #define MAX_PB_COPY_RETRIES         3
 
 static struct snd_pcm_hardware msm_pcm_hardware_capture = {

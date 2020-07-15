@@ -25,7 +25,7 @@
 #define WRITEDONE_IDX_STATUS    0
 
 /* Standard timeout in the asynchronous ops */
-#define Q6USM_TIMEOUT_JIFFIES	(1*HZ) /* 1 sec */
+#define Q6USM_TIMEOUT_JIFFIES	(msecs_to_jiffies(1000)) /* 1 sec */
 
 static DEFINE_MUTEX(session_lock);
 
