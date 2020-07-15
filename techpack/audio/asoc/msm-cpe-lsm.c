@@ -35,7 +35,7 @@
 #define LISTEN_MAX_STATUS_PAYLOAD_SIZE 256
 #define MSM_CPE_MAX_CUSTOM_PARAM_SIZE 2048
 
-#define MSM_CPE_LAB_THREAD_TIMEOUT (3 * (HZ/10))
+#define MSM_CPE_LAB_THREAD_TIMEOUT (3 * (msecs_to_jiffies(100)))
 
 #define MSM_CPE_LSM_GRAB_LOCK(lock, name)		\
 {						\
@@ -685,7 +685,7 @@ static int msm_cpe_lab_thread(void *data)
 			lab_d->thread_status = MSM_LSM_LAB_THREAD_ERROR;
 		}
 
-		rc = wait_for_completion_timeout(&lab_d->comp, (2 * HZ/10));
+		rc = wait_for_completion_timeout(&lab_d->comp, (2 * msecs_to_jiffies(100)));
 		if (!rc) {
 			dev_err(rtd->dev,
 				"%s: wait timedout for slim buffer\n",
@@ -3177,7 +3177,7 @@ static int msm_cpe_lsm_copy(struct snd_pcm_substream *substream, int a,
 	rc = wait_event_timeout(lab_d->period_wait,
 			(atomic_read(&lab_d->in_count) ||
 			atomic_read(&lab_d->abort_read)),
-			(2 * HZ));
+			(msecs_to_jiffies(2000)));
 	if (atomic_read(&lab_d->abort_read)) {
 		pr_debug("%s: LSM LAB Abort read\n", __func__);
 		return -EIO;
