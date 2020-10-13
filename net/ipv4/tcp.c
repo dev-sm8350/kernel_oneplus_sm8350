@@ -2366,8 +2366,10 @@ void tcp_set_state(struct sock *sk, int state)
 	default:
 		if (oldstate == TCP_ESTABLISHED || oldstate == TCP_CLOSE_WAIT) {
 			TCP_DEC_STATS(sock_net(sk), TCP_MIB_CURRESTAB);
+#ifdef CONFIG_MPTCP
 			if (is_meta_sk(sk))
 				MPTCP_DEC_STATS(sock_net(sk), MPTCP_MIB_CURRESTAB);
+#endif
 		}
 	}
 
