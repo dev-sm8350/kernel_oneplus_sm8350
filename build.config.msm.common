@@ -12,6 +12,7 @@
 ##
 function compile_external_dtc() {
 	(
+		OUT_DIR=$(realpath $OUT_DIR/..)/external/dtc
 		cd ${ROOT_DIR}/external/dtc
 		NO_PYTHON=1 CC=cc make
 	)
