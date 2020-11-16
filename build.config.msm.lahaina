@@ -33,6 +33,8 @@ DT_OVERLAY_SUPPORT=1
 BOOT_IMAGE_HEADER_VERSION=3
 BASE_ADDRESS=0x80000000
 PAGE_SIZE=4096
+BUILD_VENDOR_DLKM=1
+TRIM_UNUSED_MODULES=1
 
 ################################################################################
 ## Inheriting MSM configs
