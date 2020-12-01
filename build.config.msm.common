@@ -25,6 +25,8 @@ export TARGET_BUILD_VARIANT=user
 
 ################################################################################
 ## DT Overlay
+DTC_OVERLAY_TEST_EXT=ufdt_apply_overlay
+
 function add_dt_overlay_defconfig() {
   ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
     -e BUILD_ARM64_DT_OVERLAY
