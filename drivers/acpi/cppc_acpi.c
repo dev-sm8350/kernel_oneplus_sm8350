@@ -521,7 +521,7 @@ err_ret:
 		if (retval) {
 			cpumask_clear(pr->shared_cpu_map);
 			cpumask_set_cpu(i, pr->shared_cpu_map);
-			pr->shared_type = CPUFREQ_SHARED_TYPE_ALL;
+			pr->shared_type = CPUFREQ_SHARED_TYPE_NONE;
 		}
 	}
 
