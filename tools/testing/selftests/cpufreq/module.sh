@@ -109,17 +109,7 @@ module_driver_test()
 # $1: governor module name
 find_gov_name()
 {
-	if [ $1 = "cpufreq_ondemand.ko" ]; then
-		printf "ondemand"
-	elif [ $1 = "cpufreq_conservative.ko" ]; then
-		printf "conservative"
-	elif [ $1 = "cpufreq_userspace.ko" ]; then
-		printf "userspace"
-	elif [ $1 = "cpufreq_performance.ko" ]; then
-		printf "performance"
-	elif [ $1 = "cpufreq_powersave.ko" ]; then
-		printf "powersave"
-	elif [ $1 = "cpufreq_schedutil.ko" ]; then
+	if [ $1 = "cpufreq_schedutil.ko" ]; then
 		printf "schedutil"
 	fi
 }
