@@ -24,7 +24,7 @@
 
 #ifndef cond_syscall
 #define cond_syscall(x)	\
-	extern long x(void) __attribute__((alias("sys_ni_syscall"), weak));
+	long __attribute__((weak, alias("sys_ni_syscall"))) x(void);
 #endif
 
 #ifndef SYSCALL_ALIAS
