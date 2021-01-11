@@ -158,3 +158,25 @@ arch/arm/boot/dts/vendor
 #Ignoring Android.bp link file
 #
 Android.bp
+
+# Ignore stuff
+AnyKernel3/
+changelog/
+clang-azure/
+clang-cosmic/
+clang-finix/
+clang-greenforce/
+clang-llvm/
+clang-neutron/
+clang-nfs/
+clang-playground/
+clang-prelude/
+clang-proton/
+clang-trb/
+clang-weebx/
+dtb*
+environment/
+error.*
+gcc/
+gcc-eva/
+gcc64/
