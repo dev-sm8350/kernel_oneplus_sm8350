@@ -1630,6 +1630,10 @@ static void _sde_encoder_rc_restart_delayed(struct sde_encoder_virt *sde_enc,
 	unsigned int min_duration = IDLE_POWERCOLLAPSE_DURATION;
 	unsigned int max_duration = IDLE_POWERCOLLAPSE_IN_EARLY_WAKEUP;
 
+	/* return early if called from esd thread */
+	if (!sde_enc->delay_kickoff)
+		return;
+
 	/* set idle timeout based on master connector's lp value */
 	if (sde_enc->cur_master)
 		lp = sde_connector_get_lp(
