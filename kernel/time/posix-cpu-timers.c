@@ -980,7 +980,7 @@ static void posix_cpu_timer_rearm(struct k_itimer *timer)
 	struct task_struct *p = ctmr->task;
 	struct sighand_struct *sighand;
 	unsigned long flags;
-	u64 now;
+	u64 now = 0;
 
 	if (WARN_ON_ONCE(!p))
 		return;
