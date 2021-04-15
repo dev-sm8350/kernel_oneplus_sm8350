@@ -42,3 +42,23 @@ config ZRAM_MEMORY_TRACKING
 config ZRAM_DEFAULT_COMP_ALGORITHM
 	string "Default ZRAM compression algorithm"
 	default "lz4"
+
+config ZRAM_SIZE_OVERRIDE_ENABLE
+    bool "Enable overriding zram size from kernel command line"
+    default n
+    help
+      Say yes here to allow specifying the zram disk size directly
+      via the 'zram.size' kernel command line parameter, multiplied
+      by a factor set in CONFIG_ZRAM_SIZE_OVERRIDE. If disabled,
+      the size will be determined by other kernel mechanisms.
+
+config ZRAM_SIZE_OVERRIDE
+    int "zram size multiplier (in GB)"
+    range 1 8
+    default 4
+    depends on ZRAM_SIZE_OVERRIDE_ENABLE
+    help
+      Specify the multiplier (in Gigabytes) to use when overriding
+      the zram disk size via the 'zram.size' kernel command line
+      parameter. This option is only effective if
+      CONFIG_ZRAM_SIZE_OVERRIDE_ENABLE is enabled.
