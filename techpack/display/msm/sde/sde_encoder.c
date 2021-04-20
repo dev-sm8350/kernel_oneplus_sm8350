@@ -1297,9 +1297,12 @@ static int _sde_encoder_update_rsc_client(
 	 * secondary command mode panel.
 	 * Clone mode encoder can request CLK STATE only.
 	 */
-	if (sde_enc->cur_master)
+	if (sde_enc->cur_master) {
 		qsync_mode = sde_connector_get_qsync_mode(
 				sde_enc->cur_master->connector);
+		sde_enc->autorefresh_solver_disable =
+			 _sde_encoder_is_autorefresh_enabled(sde_enc) ? true : false;
+	}
 
 	/* left primary encoder keep vote */
 	if (sde_encoder_in_clone_mode(drm_enc)) {
@@ -1308,7 +1311,8 @@ static int _sde_encoder_update_rsc_client(
 	}
 
 	if ((disp_info->display_type != SDE_CONNECTOR_PRIMARY) ||
-			(disp_info->display_type && qsync_mode))
+			(disp_info->display_type && qsync_mode) ||
+			sde_enc->autorefresh_solver_disable)
 		rsc_state = enable ? SDE_RSC_CLK_STATE : SDE_RSC_IDLE_STATE;
 	else if (sde_encoder_check_curr_mode(drm_enc, MSM_DISPLAY_CMD_MODE))
 		rsc_state = enable ? SDE_RSC_CMD_STATE : SDE_RSC_IDLE_STATE;
@@ -4526,17 +4530,13 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 
 			if (sde_enc->cur_master &&
 					sde_connector_is_qsync_updated(
-					sde_enc->cur_master->connector)) {
+					sde_enc->cur_master->connector))
 #ifdef OPLUS_BUG_STABILITY
 				if (oplus_adfr_is_support()) {
 					SDE_ATRACE_BEGIN("flush_qsync");
 				}
 #endif
 				_helper_flush_qsync(phys);
-
-				if (is_cmd_mode)
-					_sde_encoder_update_rsc_client(drm_enc,
-							true);
 
 #ifdef OPLUS_BUG_STABILITY
 				// fix qsync bug from case 04843535
@@ -4546,9 +4546,13 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 					SDE_ATRACE_END("flush_qsync");
 				}
 #endif
-			}
 		}
 	}
+
+	if (is_cmd_mode && sde_enc->cur_master &&
+			 (sde_connector_is_qsync_updated(sde_enc->cur_master->connector) ||
+			 _sde_encoder_is_autorefresh_enabled(sde_enc)))
+		_sde_encoder_update_rsc_client(drm_enc, true);
 
 	rc = sde_encoder_resource_control(drm_enc, SDE_ENC_RC_EVENT_KICKOFF);
 	if (rc) {
@@ -4714,6 +4718,11 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool is_error,
 		if (phys && phys->ops.handle_post_kickoff)
 			phys->ops.handle_post_kickoff(phys);
 	}
+
+	if (sde_enc->autorefresh_solver_disable &&
+			!_sde_encoder_is_autorefresh_enabled(sde_enc))
+		_sde_encoder_update_rsc_client(drm_enc, true);
+
 	SDE_ATRACE_END("encoder_kickoff");
 #ifdef OPLUS_BUG_STABILITY
 	sde_connector_update_backlight(sde_enc->cur_master->connector, true);
