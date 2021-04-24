@@ -1648,7 +1648,7 @@ static void wma_wow_stats_display(struct wake_lock_stats *stats)
 			    stats->mgmt_deauth,
 			    stats->mgmt_action);
 
-	wma_conditional_log(is_wakeup_event_console_logs_enabled,
+	wma_debug(is_wakeup_event_console_logs_enabled,
 			    "pno_match:%d pno_complete:%d gscan:%d low_rssi:%d"
 			    " rssi_breach:%d oem:%d ucdrop:%d scan_11d:%d"
 			    " fatal_event:%d",
@@ -2102,7 +2102,7 @@ static void wma_log_pkt_ipv4(uint8_t *data, uint32_t length)
 		      ip_addr[2], ip_addr[3]);
 	src_port = *(uint16_t *)(data + IPV4_SRC_PORT_OFFSET);
 	dst_port = *(uint16_t *)(data + IPV4_DST_PORT_OFFSET);
-	wma_info("Pkt_len: %u, src_port: %u, dst_port: %u",
+	wma_debug("Pkt_len: %u, src_port: %u, dst_port: %u",
 		qdf_cpu_to_be16(pkt_len),
 		qdf_cpu_to_be16(src_port),
 		qdf_cpu_to_be16(dst_port));
@@ -2133,7 +2133,7 @@ static void wma_log_pkt_ipv6(uint8_t *data, uint32_t length)
 		 ip_addr[15]);
 	src_port = *(uint16_t *)(data + IPV6_SRC_PORT_OFFSET);
 	dst_port = *(uint16_t *)(data + IPV6_DST_PORT_OFFSET);
-	wma_info("Pkt_len: %u, src_port: %u, dst_port: %u",
+	wma_debug("Pkt_len: %u, src_port: %u, dst_port: %u",
 		 qdf_cpu_to_be16(pkt_len),
 		 qdf_cpu_to_be16(src_port),
 		 qdf_cpu_to_be16(dst_port));
@@ -2206,7 +2206,7 @@ static void wma_wow_parse_data_pkt(t_wma_handle *wma,
 
 	src_mac = data + QDF_NBUF_SRC_MAC_OFFSET;
 	dest_mac = data + QDF_NBUF_DEST_MAC_OFFSET;
-	wma_conditional_log(is_wakeup_event_console_logs_enabled,
+	wma_debug(is_wakeup_event_console_logs_enabled,
 			    "Src_mac: " QDF_MAC_ADDR_FMT ", Dst_mac: "
 			    QDF_MAC_ADDR_FMT, QDF_MAC_ADDR_REF(src_mac),
 			    QDF_MAC_ADDR_REF(dest_mac));
@@ -2216,7 +2216,7 @@ static void wma_wow_parse_data_pkt(t_wma_handle *wma,
 	proto_subtype = wma_wow_get_pkt_proto_subtype(data, length);
 	proto_subtype_name = wma_pkt_proto_subtype_to_string(proto_subtype);
 	if (proto_subtype_name)
-		wma_conditional_log(is_wakeup_event_console_logs_enabled,
+		wma_debug(is_wakeup_event_console_logs_enabled,
 				    "WOW Wakeup: %s rcvd", proto_subtype_name);
 
 	switch (proto_subtype) {
