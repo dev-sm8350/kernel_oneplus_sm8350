@@ -12,8 +12,9 @@
 ##
 function compile_external_dtc() {
 	(
-		OUT_DIR=${COMMON_OUT_DIR}/external/dtc
-		cd ${ROOT_DIR}/external/dtc
+    OUT_DIR=${COMMON_OUT_DIR}/external/dtc
+    [ "${SKIP_MRPROPER}" != "1" ] && rm -rf ${OUT_DIR}
+    cd ${ROOT_DIR}/external/dtc
     DTC_MAKE_ARGS=("CC=${HOSTCC}" "AR=${AR}")
     DTC_MAKE_ARGS+=("LDFLAGS=${HOSTLDFLAGS} -fuse-ld=${LD##*.} --rtlib=compiler-rt")
     DTC_MAKE_ARGS+=("EXTRA_CFLAGS=${HOSTCFLAGS}")
