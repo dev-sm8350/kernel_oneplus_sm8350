@@ -3061,10 +3061,12 @@ dev_err( &spi->dev, "%s():%d spi_setup:%d \n", __FUNCTION__, __LINE__, err);
 // by Dv: dbg
 dev_err( &spi->dev, "%s():%d spi_setup:%d \n", __FUNCTION__, __LINE__, err);
 	if (err)
-		goto out_free_candev;
+		goto out_can_rx_offload_del;
 
 	return 0;
 
+ out_can_rx_offload_del:
+	can_rx_offload_del(&priv->offload);
  out_free_candev:
 	spi->max_speed_hz = priv->spi_max_speed_hz_orig;
 
