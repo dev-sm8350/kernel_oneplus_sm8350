@@ -47,19 +47,6 @@ DEFINE_PER_CPU_SHARED_ALIGNED(struct rq, runqueues);
 EXPORT_SYMBOL_GPL(runqueues);
 
 /*
- * Debugging: various feature bits
- */
-
-#define SCHED_FEAT(name, enabled)	\
-	(1UL << __SCHED_FEAT_##name) * enabled |
-
-const_debug unsigned int sysctl_sched_features =
-#include "features.h"
-	0;
-
-#undef SCHED_FEAT
-
-/*
  * Number of tasks to iterate in a single balance run.
  * Limited because this is done with IRQs disabled.
  */
@@ -2498,6 +2485,7 @@ static int ttwu_remote(struct task_struct *p, int wake_flags)
 }
 
 #ifdef CONFIG_SMP
+#if SCHED_FEAT_TTWU_QUEUE
 void sched_ttwu_pending(void)
 {
 	struct rq *rq = this_rq();
@@ -2516,6 +2504,7 @@ void sched_ttwu_pending(void)
 
 	rq_unlock_irqrestore(rq, &rf);
 }
+#endif
 
 void scheduler_ipi(void)
 {
@@ -2527,8 +2516,13 @@ void scheduler_ipi(void)
 	 */
 	preempt_fold_need_resched();
 
+#if SCHED_FEAT_TTWU_QUEUE
 	if (llist_empty(&this_rq()->wake_list) && !got_nohz_idle_kick())
 		return;
+#else
+	if (!got_nohz_idle_kick())
+		return;
+#endif
 
 	/*
 	 * Not all reschedule IPI handlers call irq_enter/irq_exit, since
@@ -2566,6 +2560,7 @@ void send_call_function_single_ipi(int cpu)
 		trace_sched_wake_idle_without_ipi(cpu);
 }
 
+#if SCHED_FEAT_TTWU_QUEUE
 static void ttwu_queue_remote(struct task_struct *p, int cpu, int wake_flags)
 {
 	struct rq *rq = cpu_rq(cpu);
@@ -2579,6 +2574,7 @@ static void ttwu_queue_remote(struct task_struct *p, int cpu, int wake_flags)
 			trace_sched_wake_idle_without_ipi(cpu);
 	}
 }
+#endif
 
 void wake_up_if_idle(int cpu)
 {
@@ -2619,12 +2615,14 @@ static void ttwu_queue(struct task_struct *p, int cpu, int wake_flags)
 	struct rq_flags rf;
 
 #if defined(CONFIG_SMP)
-	if ((sched_feat(TTWU_QUEUE) && !cpus_share_cache(smp_processor_id(), cpu)) ||
-			walt_want_remote_wakeup()) {
+#if SCHED_FEAT_TTWU_QUEUE
+	if (!cpus_share_cache(smp_processor_id(), cpu) ||
+	    walt_want_remote_wakeup()) {
 		sched_clock_cpu(cpu); /* Sync clocks across CPUs */
 		ttwu_queue_remote(p, cpu, wake_flags);
 		return;
 	}
+#endif
 #endif
 
 	rq_lock(rq, &rf);
@@ -4987,8 +4985,10 @@ int idle_cpu(int cpu)
 		return 0;
 
 #ifdef CONFIG_SMP
+#if SCHED_FEAT_TTWU_QUEUE
 	if (!llist_empty(&rq->wake_list))
 		return 0;
+#endif
 #endif
 
 	return 1;
