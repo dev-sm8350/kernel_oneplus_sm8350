@@ -830,7 +830,6 @@ KBUILD_CFLAGS += -Wno-format-invalid-specifier
 KBUILD_CFLAGS += -Wno-gnu
 # Quiet clang warning: comparison of unsigned expression < 0 is always false
 KBUILD_CFLAGS += -Wno-tautological-compare
-KBUILD_CFLAGS += $(call cc-disable-warning, undefined-optimized)
 else
 
 # Warn about unmarked fall-throughs in switch statement.
