@@ -59,11 +59,3 @@ $(obj)/dtbo.img: $(DTBO_OBJS) FORCE
 
 $(obj)/dtb.img: $(DTB_OBJS) FORCE
 	$(call if_changed,cat)
-	
-install:
-	$(CONFIG_SHELL) $(srctree)/$(src)/install.sh $(KERNELRELEASE) \
-	$(obj)/Image System.map "$(INSTALL_PATH)"
-
-zinstall:
-	$(CONFIG_SHELL) $(srctree)/$(src)/install.sh $(KERNELRELEASE) \
-	$(obj)/Image.gz System.map "$(INSTALL_PATH)"
