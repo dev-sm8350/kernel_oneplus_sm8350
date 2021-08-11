@@ -16773,6 +16773,9 @@ static void hdd_set_adapter_wlm_def_level(struct hdd_context *hdd_ctx)
 	QDF_STATUS qdf_status;
 	uint8_t latency_level;
 
+	if (QDF_GLOBAL_FTM_MODE == hdd_get_conparam())
+		return;
+
 	ret = wlan_hdd_validate_context(hdd_ctx);
 	if (ret != 0)
 		return;
