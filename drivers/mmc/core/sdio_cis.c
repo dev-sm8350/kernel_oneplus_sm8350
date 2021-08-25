@@ -193,7 +193,7 @@ static int cistpl_funce_func(struct mmc_card *card, struct sdio_func *func,
 	if (vsn > SDIO_SDIO_REV_1_00)
 		func->enable_timeout = (buf[28] | (buf[29] << 8)) * 10;
 	else
-		func->enable_timeout = jiffies_to_msecs(HZ);
+		func->enable_timeout = jiffies_to_msecs(msecs_to_jiffies(1000));
 
 	return 0;
 }
