@@ -92,7 +92,7 @@ do_xor_speed(struct xor_block_template *tmpl, void *b1, void *b2)
 
 	preempt_enable();
 
-	speed = max * (HZ * BENCH_SIZE / 1024);
+	speed = max * (msecs_to_jiffies(1000) * BENCH_SIZE / 1024);
 	tmpl->speed = speed;
 
 	printk(KERN_INFO "   %-10s: %5d.%03d MB/sec\n", tmpl->name,
