@@ -29,7 +29,7 @@ __setup("lpj=", lpj_setup);
  * Also, this code tries to handle non-maskable asynchronous events
  * (like SMIs)
  */
-#define DELAY_CALIBRATION_TICKS			((HZ < 100) ? 1 : (HZ/100))
+#define DELAY_CALIBRATION_TICKS			((msecs_to_jiffies(1000) < 100) ? 1 : msecs_to_jiffies(10))
 #define MAX_DIRECT_CALIBRATION_RETRIES		5
 
 static unsigned long calibrate_delay_direct(void)
@@ -306,8 +306,8 @@ void calibrate_delay(void)
 	per_cpu(cpu_loops_per_jiffy, this_cpu) = lpj;
 	if (!printed)
 		pr_cont("%lu.%02lu BogoMIPS (lpj=%lu)\n",
-			lpj/(500000/HZ),
-			(lpj/(5000/HZ)) % 100, lpj);
+			lpj/(500000/msecs_to_jiffies(1000)),
+			(lpj/(5000/msecs_to_jiffies(1000))) % 100, lpj);
 
 	loops_per_jiffy = lpj;
 	printed = true;

@@ -112,7 +112,7 @@ void mmc_retune_enable(struct mmc_host *host)
 	host->can_retune = 1;
 	if (host->retune_period)
 		mod_timer(&host->retune_timer,
-			  jiffies + host->retune_period * HZ);
+			  jiffies + host->retune_period * msecs_to_jiffies(1000));
 }
 
 /*
