@@ -911,7 +911,7 @@ static int test_ahash_jiffies_digest(struct ahash_request *req, int blen,
 	int bcount;
 	int ret;
 
-	for (start = jiffies, end = start + secs * HZ, bcount = 0;
+	for (start = jiffies, end = start + secs * msecs_to_jiffies(1000), bcount = 0;
 	     time_before(jiffies, end); bcount++) {
 		ret = do_one_ahash_op(req, crypto_ahash_digest(req));
 		if (ret)
@@ -934,7 +934,7 @@ static int test_ahash_jiffies(struct ahash_request *req, int blen,
 	if (plen == blen)
 		return test_ahash_jiffies_digest(req, blen, out, secs);
 
-	for (start = jiffies, end = start + secs * HZ, bcount = 0;
+	for (start = jiffies, end = start + secs * msecs_to_jiffies(1000), bcount = 0;
 	     time_before(jiffies, end); bcount++) {
 		ret = do_one_ahash_op(req, crypto_ahash_init(req));
 		if (ret)
@@ -1412,7 +1412,7 @@ static int test_acipher_jiffies(struct skcipher_request *req, int enc,
 	int bcount;
 	int ret;
 
-	for (start = jiffies, end = start + secs * HZ, bcount = 0;
+	for (start = jiffies, end = start + secs * msecs_to_jiffies(1000), bcount = 0;
 	     time_before(jiffies, end); bcount++) {
 		if (enc)
 			ret = do_one_acipher_op(req,
