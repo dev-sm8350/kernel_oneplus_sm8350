@@ -190,9 +190,9 @@ static int kmmpd(void *data)
 			break;
 
 		diff = jiffies - last_update_time;
-		if (diff < mmp_update_interval * HZ)
+		if (diff < mmp_update_interval * msecs_to_jiffies(1000))
 			schedule_timeout_interruptible(mmp_update_interval *
-						       HZ - diff);
+						       msecs_to_jiffies(1000) - diff);
 
 		/*
 		 * We need to make sure that more than mmp_check_interval
@@ -200,7 +200,7 @@ static int kmmpd(void *data)
 		 * we need to check if the MMP block is as we left it.
 		 */
 		diff = jiffies - last_update_time;
-		if (diff > mmp_check_interval * HZ) {
+		if (diff > mmp_check_interval * msecs_to_jiffies(1000)) {
 			struct buffer_head *bh_check = NULL;
 			struct mmp_struct *mmp_check;
 
@@ -231,7 +231,7 @@ static int kmmpd(void *data)
 		 * Adjust the mmp_check_interval depending on how much time
 		 * it took for the MMP block to be written.
 		 */
-		mmp_check_interval = max(min(EXT4_MMP_CHECK_MULT * diff / HZ,
+		mmp_check_interval = max(min(EXT4_MMP_CHECK_MULT * diff / msecs_to_jiffies(1000),
 					     EXT4_MMP_MAX_CHECK_INTERVAL),
 					 EXT4_MMP_MIN_CHECK_INTERVAL);
 		mmp->mmp_check_interval = cpu_to_le16(mmp_check_interval);
@@ -321,7 +321,7 @@ int ext4_multi_mount_protect(struct super_block *sb,
 		ext4_warning(sb, "MMP interval %u higher than expected, please"
 			     " wait.\n", wait_time * 2);
 
-	if (schedule_timeout_interruptible(HZ * wait_time) != 0) {
+	if (schedule_timeout_interruptible(msecs_to_jiffies(1000) * wait_time) != 0) {
 		ext4_warning(sb, "MMP startup interrupted, failing mount\n");
 		goto failed;
 	}
@@ -350,7 +350,7 @@ skip:
 	/*
 	 * wait for MMP interval and check mmp_seq.
 	 */
-	if (schedule_timeout_interruptible(HZ * wait_time) != 0) {
+	if (schedule_timeout_interruptible(msecs_to_jiffies(1000) * wait_time) != 0) {
 		ext4_warning(sb, "MMP startup interrupted, failing mount");
 		goto failed;
 	}
