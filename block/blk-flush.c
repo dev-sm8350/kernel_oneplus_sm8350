@@ -292,7 +292,7 @@ static void blk_kick_flush(struct request_queue *q, struct blk_flush_queue *fq,
 	 */
 	if (!list_empty(&fq->flush_data_in_flight) && q->elevator &&
 	    time_before(jiffies,
-			fq->flush_pending_since + FLUSH_PENDING_TIMEOUT))
+			fq->flush_pending_since + msecs_to_jiffies(FLUSH_PENDING_TIMEOUT)))
 		return;
 
 	/*
