@@ -169,7 +169,7 @@ static struct crypto_alg *crypto_larval_wait(struct crypto_alg *alg)
 	long timeout;
 
 	timeout = wait_for_completion_killable_timeout(
-		&larval->completion, 60 * HZ);
+		&larval->completion, msecs_to_jiffies(60000));
 
 	alg = larval->adult;
 	if (timeout < 0)
