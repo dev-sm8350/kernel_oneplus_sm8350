@@ -1498,7 +1498,7 @@ static inline void sched_ttwu_pending(void) { }
  */
 #define for_each_domain(cpu, __sd) \
 	for (__sd = rcu_dereference_check_sched_domain(cpu_rq(cpu)->sd); \
-			__sd; __sd = __sd->parent)
+			__sd; __sd = rcu_dereference(__sd->parent))
 
 /**
  * highest_flag_domain - Return highest sched_domain containing flag.
