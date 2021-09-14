@@ -963,14 +963,28 @@ KBUILD_CFLAGS	+= $(CC_FLAGS_SCS)
 export CC_FLAGS_SCS
 endif
 
+ifdef CONFIG_LTO_CLANG
+ifdef CONFIG_LTO_CLANG_THIN
+CC_FLAGS_LTO	+= -flto=thin -fsplit-lto-unit
+KBUILD_LDFLAGS	+= --thinlto-cache-dir=$(extmod-prefix).thinlto-cache
+else
+CC_FLAGS_LTO	+= -flto
+endif
 ifdef CONFIG_LD_IS_LLD
 KBUILD_LDFLAGS += --lto-O3
 endif
+CC_FLAGS_LTO	+= -fvisibility=hidden
 KBUILD_LDS_MODULE += $(srctree)/scripts/module-lto.lds
 
 # Set O3 optimization level for LTO
 KBUILD_LDFLAGS		+= --plugin-opt=O3
 KBUILD_LDFLAGS      += --lto-O3
+endif
+
+ifdef CONFIG_LTO
+KBUILD_CFLAGS	+= $(CC_FLAGS_LTO)
+export CC_FLAGS_LTO
+endif
 
 ifdef CONFIG_CFI_CLANG
 CC_FLAGS_CFI	:= -fsanitize=cfi \
@@ -1568,7 +1582,7 @@ MRPROPER_FILES += .config .config.old .version \
 		  Module.symvers \
 		  signing_key.pem signing_key.priv signing_key.x509	\
 		  x509.genkey extra_certificates signing_key.x509.keyid	\
-		  signing_key.x509.signer vmlinux-gdb.py \
+		  signing_key.x509.signer vmlinux-gdb.py .thinlto-cache \
 		  *.spec
 
 # Directories & files removed with 'make distclean'
@@ -1819,7 +1833,7 @@ _emodinst_post: _emodinst_
 	$(call cmd,depmod)
 
 clean-dirs := $(KBUILD_EXTMOD)
-clean: rm-files := $(KBUILD_EXTMOD)/Module.symvers
+clean: rm-files := $(KBUILD_EXTMOD)/Module.symvers $(KBUILD_EXTMOD)/.thinlto-cache
 
 PHONY += /
 /:
