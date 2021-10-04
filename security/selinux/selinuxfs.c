@@ -31,6 +31,8 @@
 #include <linux/kobject.h>
 #include <linux/ctype.h>
 
+#include <linux/oem/boot_mode.h>
+
 /* selinuxfs pseudo filesystem for exporting the security policy API.
    Based on the proc code and the fs/nfsd/nfsctl.c code. */
 
@@ -196,6 +198,12 @@ static struct file_operations sel_enforce_ops;
 static ssize_t sel_read_enforce_spoof(struct file *filp, char __user *buf,
 				size_t count, loff_t *ppos)
 {
+	if (get_boot_mode() != MSM_BOOT_MODE_NORMAL) {
+		// Disable spoof
+		sel_enforce_ops.read = sel_read_enforce;
+		sel_enforce_ops.write = sel_write_enforce;
+		return sel_read_enforce(filp, buf, count, ppos);
+	}
 	return simple_read_from_buffer(buf, count, ppos, "1", 1);
 }
 
@@ -206,6 +214,13 @@ static ssize_t sel_write_enforce_spoof(struct file *file, const char __user *buf
 	char *page = NULL;
 	ssize_t length;
 	int new_value;
+
+	if (get_boot_mode() != MSM_BOOT_MODE_NORMAL) {
+		// Disable spoof
+		sel_enforce_ops.read = sel_read_enforce;
+		sel_enforce_ops.write = sel_write_enforce;
+		return sel_write_enforce(file, buf, count, ppos);
+	}
 
 	if (count >= PAGE_SIZE)
 		return -ENOMEM;
