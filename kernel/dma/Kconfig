@@ -108,7 +108,7 @@ config CMA_SIZE_MBYTES
 	int "Size in Mega Bytes"
 	depends on !CMA_SIZE_SEL_PERCENTAGE
 	default 0 if X86
-	default 16
+	default 20
 	help
 	  Defines the size (in MiB) of the default memory area for Contiguous
 	  Memory Allocator.  If the size of 0 is selected, CMA is disabled by
