@@ -537,6 +537,7 @@ config MSM_L2_SPM
 
 config QCOM_MEMORY_DUMP_V2
 	tristate "QCOM Memory Dump V2 Support"
+	default n
 	help
 	  This enables memory dump feature. It allows various client
 	  subsystems to register respective dump regions. At the time
@@ -600,6 +601,7 @@ config QCOM_DCC_V2
 config QCOM_MINIDUMP
 	tristate "QCOM Minidump Support"
 	depends on QCOM_SMEM && POWER_RESET_MSM
+	default n
 	help
 	  This enables minidump feature. It allows various clients to
 	  register to dump their state at system bad state (panic/WDT,etc.,).
@@ -659,6 +661,7 @@ config QCOM_MICRODUMP
 	tristate "Qualcomm Technologies, Inc. Microdump Support"
 	depends on MSM_SUBSYSTEM_RESTART
 	depends on QCOM_SMEM
+	default n
 	help
 	  This enables microdump feature. It collects
 	  crash data from SMEM whenever modem subsytem
