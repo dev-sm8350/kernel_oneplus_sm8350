@@ -557,7 +557,8 @@ static long spss_utils_ioctl(struct file *file,
 			return -EINVAL;
 		}
 		ret = spss_wait_for_event(req);
-		copy_to_user((void __user *)arg, data, size);
+		if (copy_to_user((void __user *)arg, data, size))
+			return -EFAULT;
 		if (ret < 0)
 			return ret;
 		break;
@@ -569,7 +570,8 @@ static long spss_utils_ioctl(struct file *file,
 			return -EINVAL;
 		}
 		ret = spss_signal_event(req);
-		copy_to_user((void __user *)arg, data, size);
+		if (copy_to_user((void __user *)arg, data, size))
+			return -EFAULT;
 		if (ret < 0)
 			return ret;
 		break;
@@ -581,7 +583,8 @@ static long spss_utils_ioctl(struct file *file,
 			return -EINVAL;
 		}
 		ret = spss_is_event_signaled(req);
-		copy_to_user((void __user *)arg, data, size);
+		if (copy_to_user((void __user *)arg, data, size))
+			return -EFAULT;
 		if (ret < 0)
 			return ret;
 		break;
