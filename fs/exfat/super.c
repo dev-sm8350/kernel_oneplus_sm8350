@@ -17,6 +17,7 @@
 #include <linux/fs_struct.h>
 #include <linux/nls.h>
 #include <linux/buffer_head.h>
+#include <linux/magic.h>
 #include <linux/iversion.h>
 
 #include "exfat_raw.h"
