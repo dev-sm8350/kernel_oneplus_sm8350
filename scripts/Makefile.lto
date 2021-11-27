@@ -68,7 +68,7 @@ endif
 # would be needed to support < 5.0
 #	LTO_FINAL_CFLAGS += -fno-toplevel-reorder
 
-	LTO_FINAL_CFLAGS += -flto=jobserver
+	LTO_FINAL_CFLAGS += -flto=auto
 
 	KBUILD_MOD_LDFLAGS += -flinker-output=nolto-rel
 
