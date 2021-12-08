@@ -2745,10 +2745,8 @@ static int qpnp_lcdb_regulator_probe(struct platform_device *pdev)
 	mutex_init(&lcdb->read_write_mutex);
 
 	rc = qpnp_lcdb_parse_dt(lcdb);
-	if (rc < 0) {
-		pr_err("Failed to parse dt rc=%d\n", rc);
-		return rc;
-	}
+	if (rc < 0)
+		return dev_err_probe(&pdev->dev, rc, "Failed to parse dt rc=%d\n");
 
 	rc = qpnp_lcdb_hw_init(lcdb);
 	if (rc < 0)
