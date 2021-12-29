@@ -4476,6 +4476,8 @@ int module_kallsyms_on_each_symbol(int (*fn)(void *, const char *,
 				 mod, kallsyms_symbol_value(sym));
 			if (ret != 0)
 				break;
+
+			cond_resched();
 		}
 	}
 	mutex_unlock(&module_mutex);
