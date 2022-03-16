@@ -786,6 +786,15 @@ KBUILD_CFLAGS	+= $(call cc-disable-warning, address-of-packed-member)
 KBUILD_CFLAGS	+= $(call cc-disable-warning, -Wno-unused-result)
 KBUILD_CFLAGS	+= $(call cc-disable-warning, -Wno-single-bit-bitfield-constant-conversion)
 
+ifdef CONFIG_CC_IS_CLANG
+MCU_FLAGS := -mcpu=cortex-a55
+else
+MCU_FLAGS := -mcpu=cortex-a76.cortex-a55
+endif
+
+KBUILD_CFLAGS += $(MCU_FLAGS)
+KBUILD_AFLAGS += $(MCU_FLAGS)
+
 ifdef CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE
 KBUILD_CFLAGS += -O2
 else ifdef CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_O3
@@ -797,10 +806,6 @@ endif
 ifdef CONFIG_CC_WERROR
 KBUILD_CFLAGS  += -Werror
 endif
-
-# Optimise kernel binary for 888's CPU
-KBUILD_CFLAGS	+= -mcpu=cortex-x1
-KBUILD_AFLAGS	+= -mcpu=cortex-x1
 
 # Profile Guided Optimization
 ifeq ($(CONFIG_PGO), y)
