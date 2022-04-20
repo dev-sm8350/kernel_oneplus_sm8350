@@ -97,8 +97,6 @@ static void convert_to_dsi_mode(const struct drm_display_mode *drm_mode,
 void dsi_convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
 				struct drm_display_mode *drm_mode)
 {
-	bool video_mode = (dsi_mode->panel_mode == DSI_OP_VIDEO_MODE);
-
 	memset(drm_mode, 0, sizeof(*drm_mode));
 
 	drm_mode->hdisplay = dsi_mode->timing.h_active;
@@ -146,30 +144,7 @@ void dsi_convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
 	if (dsi_mode->panel_mode == DSI_OP_CMD_MODE)
 		drm_mode->flags |= DRM_MODE_FLAG_CMD_MODE_PANEL;
 
-#ifdef CONFIG_OPLUS_SYSTEM_CHANGE
-	/* move source string to head to avoid missing */
-	/* qcom use node /sys/class/drm/card0-DSI-1/modes to check panel resolution */
-	/* check width value by the first value in mode name, so magic code can not at head */
-	/* please refer the qcom check logic in the file init.qcom.early_boot.sh */
-	/* set mode name */
-	if (oplus_adfr_is_support()) {
-		snprintf(drm_mode->name, DRM_DISPLAY_MODE_LEN, "%dx%dx%dx%d%sx%d",
-				drm_mode->hdisplay, drm_mode->vdisplay, drm_mode->vrefresh,
-				dsi_mode->vsync_source, video_mode ? "vid" : "cmd",
-				drm_mode->clock);
-	} else {
-		snprintf(drm_mode->name, DRM_DISPLAY_MODE_LEN, "%dx%dx%dx%d%s",
-			drm_mode->hdisplay, drm_mode->vdisplay,
-			drm_mode->vrefresh, drm_mode->clock,
-			video_mode ? "vid" : "cmd");
-	}
-#else
-	/* set mode name */
-	snprintf(drm_mode->name, DRM_DISPLAY_MODE_LEN, "%dx%dx%dx%d%s",
-			drm_mode->hdisplay, drm_mode->vdisplay,
-			drm_mode->vrefresh, drm_mode->clock,
-			video_mode ? "vid" : "cmd");
-#endif
+	*drm_mode->name = '\0';
 }
 
 static int dsi_bridge_attach(struct drm_bridge *bridge)
