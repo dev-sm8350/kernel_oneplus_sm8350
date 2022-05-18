@@ -14,8 +14,7 @@
 #include <linux/zstd.h>
 #include <crypto/internal/scompress.h>
 
-
-uint compression_level = 1;
+uint compression_level = 2;
 module_param(compression_level, uint, 0644);
 
 struct zstd_ctx {
