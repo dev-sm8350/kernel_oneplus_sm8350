@@ -304,7 +304,9 @@ static int fuse_dentry_delete(const struct dentry *dentry)
  * look up paths on its own. Instead, we handle the lookup as a special case
  * inside of the write request.
  */
-static void fuse_dentry_canonical_path(const struct path *path, struct path *canonical_path) {
+static void fuse_dentry_canonical_path(const struct path *path,
+				       struct path *canonical_path)
+{
 	struct inode *inode = d_inode(path->dentry);
 	struct fuse_conn *fc = get_fuse_conn(inode);
 	FUSE_ARGS(args);
