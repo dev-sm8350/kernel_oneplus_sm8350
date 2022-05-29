@@ -39,7 +39,7 @@ LIBFDT_SOURCE="Makefile.libfdt fdt.c fdt.h fdt_addresses.c fdt_empty_tree.c \
 		fdt_wip.c libfdt.h libfdt_env.h libfdt_internal.h"
 
 get_last_dtc_version() {
-	git log --oneline scripts/dtc/ | grep 'upstream' | head -1 | sed -e 's/^.* \(.*\)/\1/'
+	git log --oneline --grep upstream scripts/dtc/ | head -1 | sed -e 's/^.* \(.*\)/\1/'
 }
 
 last_dtc_ver=$(get_last_dtc_version)
