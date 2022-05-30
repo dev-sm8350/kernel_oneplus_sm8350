@@ -41,4 +41,4 @@ config ZRAM_MEMORY_TRACKING
 
 config ZRAM_DEFAULT_COMP_ALGORITHM
 	string "Default ZRAM compression algorithm"
-	default "zstd"
+	default "lz4"
