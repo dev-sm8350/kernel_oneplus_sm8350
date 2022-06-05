@@ -798,9 +798,9 @@ ifdef CONFIG_CC_WERROR
 KBUILD_CFLAGS  += -Werror
 endif
 
-# Optimize for lahaina's little cpu
-KBUILD_CFLAGS += -mcpu=cortex-a55
-KBUILD_AFLAGS += -mcpu=cortex-a55
+# Optimise kernel binary for 888's CPU
+KBUILD_CFLAGS	+= -mcpu=cortex-x1
+KBUILD_AFLAGS	+= -mcpu=cortex-x1
 
 # Profile Guided Optimization
 ifeq ($(CONFIG_PGO), y)
