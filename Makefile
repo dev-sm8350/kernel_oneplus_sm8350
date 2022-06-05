@@ -796,9 +796,9 @@ else ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS += -Os
 endif
 
-# Optimize for lahaina's little cpu
-KBUILD_CFLAGS += -mcpu=cortex-a55
-KBUILD_AFLAGS += -mcpu=cortex-a55
+# Optimise kernel binary for 888's CPU
+KBUILD_CFLAGS	+= -mcpu=cortex-x1
+KBUILD_AFLAGS	+= -mcpu=cortex-x1
 
 # Profile Guided Optimization
 ifeq ($(CONFIG_PGO), y)
