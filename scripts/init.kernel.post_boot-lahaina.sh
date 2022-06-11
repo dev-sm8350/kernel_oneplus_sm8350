@@ -36,6 +36,11 @@ exec > /dev/kmsg 2>&1
 
 echo "execprog: sh execution"
 
+if getprop | grep -q 'ro\.voltage\.'; then
+  echo "execprog: VoltageOS detected, skipping execution"
+  exit 0
+fi
+
 BIND=/vendor/bin/init.kernel.post_boot-lahaina.sh
 
 ddr_type=`od -An -tx /proc/device-tree/memory/ddr_device_type`
