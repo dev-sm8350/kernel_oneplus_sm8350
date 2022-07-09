@@ -14,7 +14,7 @@
 
 #define MAX_NAME_LENGTH			20
 
-#define TCS_TYPE_NR			5
+#define TCS_TYPE_NR			4
 #define MAX_CMDS_PER_TCS		16
 #define MAX_TCS_PER_TYPE		3
 #define MAX_TCS_NR			(MAX_TCS_PER_TYPE * TCS_TYPE_NR)
@@ -166,6 +166,8 @@ int rpmh_rsc_write_ctrl_data(struct rsc_drv *drv,
 void rpmh_rsc_invalidate(struct rsc_drv *drv);
 void rpmh_rsc_debug(struct rsc_drv *drv, struct completion *compl);
 int rpmh_rsc_mode_solver_set(struct rsc_drv *drv, bool enable);
+bool rpmh_rsc_ctrlr_is_idle(struct rsc_drv *drv);
+int rpmh_rsc_write_pdc_data(struct rsc_drv *drv, const struct tcs_request *msg);
 
 void rpmh_tx_done(const struct tcs_request *msg);
 int rpmh_flush(struct rpmh_ctrlr *ctrlr);
