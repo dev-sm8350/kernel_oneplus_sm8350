@@ -43,11 +43,6 @@
 #define RSC_DRV_TCS_OFFSET		672
 #define RSC_DRV_CMD_OFFSET		20
 
-/* DRV HW Solver Configuration Information Register */
-#define DRV_SOLVER_CONFIG		0x04
-#define DRV_HW_SOLVER_MASK		1
-#define DRV_HW_SOLVER_SHIFT		24
-
 /* DRV TCS Configuration Information Register */
 #define DRV_PRNT_CHLD_CONFIG		0x0C
 #define DRV_NUM_TCS_MASK		0x3F
@@ -94,6 +89,11 @@
 #define CMD_STATUS_ISSUED		BIT(8)
 #define CMD_STATUS_COMPL		BIT(16)
 
+/* PDC wakeup */
+#define RSC_PDC_DATA_SIZE		2
+#define RSC_PDC_DRV_DATA		0x38
+#define RSC_PDC_DATA_OFFSET		0x08
+
 #define ACCL_TYPE(addr)			((addr >> 16) & 0xF)
 #define NR_ACCL_TYPES			3
 #define MAX_RSC_COUNT			2
@@ -113,6 +113,7 @@ static LIST_HEAD(rpmh_rsc_dev_list);
 static struct rsc_drv *__rsc_drv[MAX_RSC_COUNT];
 static int __rsc_count;
 bool rpmh_standalone;
+static void __iomem *base_global;
 
 /*
  * Here's a high level overview of how all the registers in RPMH work
@@ -781,6 +782,51 @@ int rpmh_rsc_write_ctrl_data(struct rsc_drv *drv, const struct tcs_request *msg)
 	return ret;
 }
 
+/**
+ *  rpmh_rsc_ctrlr_is_idle: Check if any of the AMCs are busy.
+ *
+ *  @drv: The controller
+ *
+ *  Returns true if the TCSes are engaged in handling requests.
+ */
+bool rpmh_rsc_ctrlr_is_idle(struct rsc_drv *drv)
+{
+	int m;
+	struct tcs_group *tcs = &drv->tcs[ACTIVE_TCS];
+
+	for (m = tcs->offset; m < tcs->offset + tcs->num_tcs; m++) {
+		if (!tcs_is_free(drv, m))
+			return false;
+	}
+
+	return true;
+}
+
+int rpmh_rsc_write_pdc_data(struct rsc_drv *drv, const struct tcs_request *msg)
+{
+	int i;
+	void __iomem *addr = base_global + RSC_PDC_DRV_DATA;
+	struct tcs_group *tcs = &drv->tcs[CONTROL_TCS];
+	struct tcs_cmd *cmd;
+
+	if (!msg || !msg->cmds || msg->num_cmds != RSC_PDC_DATA_SIZE ||
+	    !tcs->num_tcs)
+		return -EINVAL;
+
+	for (i = 0; i < msg->num_cmds; i++) {
+		cmd = &msg->cmds[i];
+		/* Only data is write capable */
+		writel_relaxed(cmd->data, addr);
+		trace_rpmh_send_msg(drv, RSC_PDC_DRV_DATA, i, 0, cmd);
+		ipc_log_string(drv->ipc_log_ctx,
+			       "PDC write: n=%d addr=%#x data=%x",
+			       i, cmd->addr, cmd->data);
+		addr += RSC_PDC_DATA_OFFSET;
+	}
+
+	return 0;
+}
+
 static struct tcs_group *get_tcs_from_index(struct rsc_drv *drv, int tcs_id)
 {
 	unsigned int i;
@@ -1151,46 +1197,6 @@ static int rpmh_rsc_restore_noirq(struct device *dev)
 	return 0;
 }
 
-static struct rsc_drv_top *rpmh_rsc_get_top_device(const char *name)
-{
-	struct rsc_drv_top *rsc_top;
-	bool rsc_dev_present = false;
-
-	list_for_each_entry(rsc_top, &rpmh_rsc_dev_list, list) {
-		if (!strcmp(name, rsc_top->name)) {
-			rsc_dev_present = true;
-			break;
-		}
-	}
-
-	if (!rsc_dev_present)
-		return ERR_PTR(-ENODEV);
-
-	return rsc_top;
-}
-
-static int rpmh_rsc_syscore_suspend(void)
-{
-	struct rsc_drv_top *rsc_top = rpmh_rsc_get_top_device("apps_rsc");
-
-	if (IS_ERR(rsc_top))
-		return 0;
-
-	if (rpmh_rsc_ctrlr_is_busy(rsc_top->drv))
-		return -EAGAIN;
-
-	return _rpmh_flush(&rsc_top->drv->client);
-}
-
-static void rpmh_rsc_syscore_resume(void)
-{
-}
-
-static struct syscore_ops rpmh_rsc_syscore_ops = {
-	.suspend = rpmh_rsc_syscore_suspend,
-	.resume = rpmh_rsc_syscore_resume,
-};
-
 static int rpmh_probe_tcs_config(struct platform_device *pdev,
 				 struct rsc_drv *drv, void __iomem *base)
 {
@@ -1206,6 +1212,8 @@ static int rpmh_probe_tcs_config(struct platform_device *pdev,
 	ret = of_property_read_u32(dn, "qcom,tcs-offset", &offset);
 	if (ret)
 		return ret;
+
+	base_global = base;
 	drv->tcs_base = base + offset;
 
 	config = readl_relaxed(base + DRV_PRNT_CHLD_CONFIG);
@@ -1263,32 +1271,6 @@ static int rpmh_probe_tcs_config(struct platform_device *pdev,
 	return 0;
 }
 
-static int rpmh_rsc_pd_cb(struct notifier_block *nb,
-			  unsigned long action, void *data)
-{
-	struct rsc_drv *drv = container_of(nb, struct rsc_drv, genpd_nb);
-
-	/* We don't need to lock as domin on/off are serialized */
-	if ((action == GENPD_NOTIFY_PRE_OFF) &&
-	    (rpmh_rsc_ctrlr_is_busy(drv) || _rpmh_flush(&drv->client)))
-		return NOTIFY_BAD;
-
-	return NOTIFY_OK;
-}
-
-static int rpmh_rsc_pd_attach(struct rsc_drv *drv)
-{
-	int ret;
-
-	pm_runtime_enable(drv->dev);
-	ret = dev_pm_domain_attach(drv->dev, false);
-	if (ret)
-		return ret;
-
-	drv->genpd_nb.notifier_call = rpmh_rsc_pd_cb;
-	return dev_pm_genpd_add_notifier(drv->dev, &drv->genpd_nb);
-}
-
 static int rpmh_rsc_probe(struct platform_device *pdev)
 {
 	struct device_node *dn = pdev->dev.of_node;
@@ -1297,7 +1279,6 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 	char drv_id[10] = {0};
 	struct rsc_drv_top *rsc_top;
 	int ret, irq;
-	u32 solver_config;
 	void __iomem *base;
 
 	/*
@@ -1364,28 +1345,9 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 		return ret;
 
 	drv->dev = &pdev->dev;
-	/*
-	 * CPU PM notification are not required for controllers that support
-	 * 'HW solver' mode where they can be in autonomous mode executing low
-	 * power mode to power down.
-	 */
-	solver_config = readl_relaxed(base + DRV_SOLVER_CONFIG);
-	solver_config &= DRV_HW_SOLVER_MASK << DRV_HW_SOLVER_SHIFT;
-	solver_config = solver_config >> DRV_HW_SOLVER_SHIFT;
-	if (of_find_property(dn, "power-domains", NULL)) {
-		ret = rpmh_rsc_pd_attach(drv);
-		if (ret == -EPROBE_DEFER) {
-			pr_err("Failed to attach RSC %s to domain ret=%d\n", drv->name, ret);
-			return ret;
-		}
-		register_syscore_ops(&rpmh_rsc_syscore_ops);
-	} else if (!solver_config) {
-		drv->rsc_pm.notifier_call = rpmh_rsc_cpu_pm_callback;
-		cpu_pm_register_notifier(&drv->rsc_pm);
-		drv->client.flags &= ~SOLVER_PRESENT;
-	} else {
-		drv->client.flags |= SOLVER_PRESENT;
-	}
+	drv->rsc_pm.notifier_call = rpmh_rsc_cpu_pm_callback;
+	cpu_pm_register_notifier(&drv->rsc_pm);
+	drv->client.flags &= ~SOLVER_PRESENT;
 
 	/* Enable the active TCS to send requests immediately */
 	writel_relaxed(drv->tcs[ACTIVE_TCS].mask,
