@@ -1058,7 +1058,7 @@ static void rtl8192eu_phy_iqcalibrate(struct rtl8xxxu_priv *priv,
 	u32 i, val32;
 	int path_a_ok, path_b_ok;
 	int retry = 2;
-	const u32 adda_regs[RTL8XXXU_ADDA_REGS] = {
+	static const u32 adda_regs[RTL8XXXU_ADDA_REGS] = {
 		REG_FPGA0_XCD_SWITCH_CTRL, REG_BLUETOOTH,
 		REG_RX_WAIT_CCA, REG_TX_CCK_RFON,
 		REG_TX_CCK_BBON, REG_TX_OFDM_RFON,
@@ -1068,11 +1068,11 @@ static void rtl8192eu_phy_iqcalibrate(struct rtl8xxxu_priv *priv,
 		REG_RX_TO_RX, REG_STANDBY,
 		REG_SLEEP, REG_PMPD_ANAEN
 	};
-	const u32 iqk_mac_regs[RTL8XXXU_MAC_REGS] = {
+	static const u32 iqk_mac_regs[RTL8XXXU_MAC_REGS] = {
 		REG_TXPAUSE, REG_BEACON_CTRL,
 		REG_BEACON_CTRL_1, REG_GPIO_MUXCFG
 	};
-	const u32 iqk_bb_regs[RTL8XXXU_BB_REGS] = {
+	static const u32 iqk_bb_regs[RTL8XXXU_BB_REGS] = {
 		REG_OFDM0_TRX_PATH_ENABLE, REG_OFDM0_TR_MUX_PAR,
 		REG_FPGA0_XCD_RF_SW_CTRL, REG_CONFIG_ANT_A, REG_CONFIG_ANT_B,
 		REG_FPGA0_XAB_RF_SW_CTRL, REG_FPGA0_XA_RF_INT_OE,
@@ -1554,8 +1554,6 @@ static int rtl8192eu_power_on(struct rtl8xxxu_priv *priv)
 	u32 val32;
 	int ret;
 
-	ret = 0;
-
 	val32 = rtl8xxxu_read32(priv, REG_SYS_CFG);
 	if (val32 & SYS_CFG_SPS_LDO_SEL) {
 		rtl8xxxu_write8(priv, REG_LDO_SW_CTRL, 0xc3);
@@ -1702,7 +1700,7 @@ struct rtl8xxxu_fileops rtl8192eu_fops = {
 	.rx_desc_size = sizeof(struct rtl8xxxu_rxdesc24),
 	.has_s0s1 = 0,
 	.gen2_thermal_meter = 1,
-	.needs_full_init = 1,
+	.has_darfrc = 1,
 	.adda_1t_init = 0x0fc01616,
 	.adda_1t_path_on = 0x0fc01616,
 	.adda_2t_path_on_a = 0x0fc01616,
