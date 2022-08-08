@@ -159,9 +159,8 @@ int cpupri_find_fitness(struct cpupri *cp, struct task_struct *p,
 {
 	int task_pri = convert_prio(p->prio);
 	int idx, cpu;
-
 #ifdef CONFIG_SCHED_WALT
-	bool drop_nopreempts = task_pri <= MAX_RT_PRIO;
+	bool drop_nopreempts = task_pri <= MAX_RT_PRIO + 1;
 #endif
 
 	BUG_ON(task_pri >= CPUPRI_NR_PRIORITIES);
