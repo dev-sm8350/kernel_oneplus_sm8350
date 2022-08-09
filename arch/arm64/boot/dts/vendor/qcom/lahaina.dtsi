@@ -34,7 +34,7 @@
 	#size-cells = <2>;
 
 	chosen {
-		bootargs = "noirqdebug log_buf_len=256K earlycon=msm_geni_serial,0x98c000 rcupdate.rcu_normal_after_boot=1 quiet rcu_nocbs=0-7 kpti=off";
+		bootargs = "noirqdebug log_buf_len=256K earlycon=msm_geni_serial,0x98c000 rcupdate.rcu_normal_after_boot=1 quiet rcu_nocbs=0-7";
 	};
 
 	memory { device_type = "memory"; reg = <0 0 0 0>; };
