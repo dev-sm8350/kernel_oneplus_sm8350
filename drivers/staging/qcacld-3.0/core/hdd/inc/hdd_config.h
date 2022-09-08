@@ -434,7 +434,7 @@ enum hdd_dot11_mode {
 			"gEnablefwlog", \
 			0, \
 			2, \
-			1, \
+			0, \
 			CFG_VALUE_OR_DEFAULT, \
 			"Enable FW log")
 
