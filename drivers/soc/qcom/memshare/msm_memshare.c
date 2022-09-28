@@ -244,7 +244,7 @@ static void shared_hyp_mapping(int index)
 			dest_perms, 1);
 
 	if (ret != 0) {
-		dev_err(memsh_drv->dev, "memshare: hyp_assign_phys failed size=%u err=%d\n",
+		dev_warn(memsh_drv->dev, "memshare: hyp_assign_phys failed size=%u err=%d\n",
 				memblock[index].size, ret);
 		return;
 	}
