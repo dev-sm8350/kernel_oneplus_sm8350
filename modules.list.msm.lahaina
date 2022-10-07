@@ -44,3 +44,4 @@ usb_f_cdev.ko
 typec.ko
 cqhci.ko
 sdhci-msm.ko
+nothing_bootloader_log.ko
