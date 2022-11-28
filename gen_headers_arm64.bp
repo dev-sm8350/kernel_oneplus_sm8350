@@ -942,6 +942,11 @@ gen_headers_out_arm64 = [
     "linux/netfilter/ipset/ip_set_hash.h",
     "linux/netfilter/ipset/ip_set_list.h",
     "linux/wil6210_uapi.h",
+    "audio/linux/msm_audio_ar.h",
+    "linux/mhi.h",
+    "linux/eavb_shared.h",
+    "linux/esoc_ctrl.h",
+    "linux/netfilter_ipv4/ipt_TRIGGER.h",
 
     // From arch/arm64/include/uapi/**/*.h
 
