@@ -753,6 +753,9 @@ int sde_connector_update_hbm(struct drm_connector *connector)
 						rc = dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_AOD_HBM_OFF);
 						rc = dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_HBM_AOR_RESTORE);
 					}
+					mutex_unlock(&dsi_display->panel->panel_lock);
+					/* Update aod light mode and fix 3658965*/
+					mutex_lock(&dsi_display->panel->panel_lock);
 					oplus_update_aod_light_mode_unlock(panel);
 					set_oplus_display_scene(OPLUS_DISPLAY_AOD_SCENE);
 				} else {
@@ -768,6 +771,7 @@ int sde_connector_update_hbm(struct drm_connector *connector)
 						(!strcmp(dsi_display->panel->oplus_priv.vendor_name, "AMB655X")) ||
 						(!strcmp(panel->oplus_priv.vendor_name, "AMB670YF01") && (panel->panel_id2 >= 5))) {
 						rc = dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_HBM_OFF);
+						oplus_panel_update_backlight_unlock(panel);
 					}
 					else if (!strcmp(dsi_display->panel->oplus_priv.vendor_name, "AMS643YE01") ||
 							(!strcmp(dsi_display->panel->oplus_priv.vendor_name, "AMS662ZS01"))) {
@@ -811,6 +815,9 @@ int sde_connector_update_hbm(struct drm_connector *connector)
 				} else {
 					rc = dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_AOD_HBM_OFF);
 				}
+				mutex_unlock(&dsi_display->panel->panel_lock);
+				/* Update aod light mode and fix 3658965*/
+				mutex_lock(&dsi_display->panel->panel_lock);
 				oplus_update_aod_light_mode_unlock(panel);
 
 			} else {

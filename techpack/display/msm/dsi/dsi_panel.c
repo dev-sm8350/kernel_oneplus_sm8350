@@ -877,7 +877,7 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 			bl_lvl = backlight_buf[bl_lvl];
 	}
 
-	{
+	if (OPLUS_DISPLAY_NORMAL_SCENE == get_oplus_display_scene()) {
 		const struct mipi_dsi_host_ops *ops = dsi->host->ops;
 		char payload[] = {MIPI_DCS_WRITE_CONTROL_DISPLAY, 0xE0};
 		struct mipi_dsi_msg msg;
@@ -951,16 +951,13 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 
 			if (rc)
 				DSI_ERR("[%s] failed to send CMD_HBM cmds, rc=%d\n", panel->name, rc);
-		}
-		else if (!strcmp(panel->name,"samsung AMS643YE01 dsc cmd mode panel")
-					|| !strcmp(panel->name, "samsung ams662zs01 dvt dsc cmd mode panel")) {
+		} else if (!strcmp(panel->oplus_priv.vendor_name, "AMS662ZS01")) {
 			if (bl_lvl > PANEL_MAX_NOMAL_BRIGHTNESS) {
 				if (enable_global_hbm_flags == 0) {
 					rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_HBM_ENTER_SWITCH);
 					enable_global_hbm_flags = 1;
 				}
-			}
-			else {
+			} else if (!strcmp(panel->name, "samsung AMS643YE01 dsc cmd mode panel")) {
 				if(enable_global_hbm_flags == 1) {
 					rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_HBM_EXIT_SWITCH);
 					enable_global_hbm_flags = 0;
@@ -5153,6 +5150,9 @@ int dsi_panel_set_lp1(struct dsi_panel *panel)
 		DSI_ERR("[%s] failed to send DSI_CMD_SET_LP1 cmd, rc=%d\n",
 		       panel->name, rc);
 #ifdef CONFIG_OPLUS_SYSTEM_CHANGE
+	mutex_unlock(&panel->panel_lock);
+	/* Update aod light mode and fix 3658965*/
+	mutex_lock(&panel->panel_lock);
 	oplus_update_aod_light_mode_unlock(panel);
 	panel->need_power_on_backlight = true;
 	set_oplus_display_power_status(OPLUS_DISPLAY_POWER_DOZE);
@@ -5668,9 +5668,15 @@ int dsi_panel_enable(struct dsi_panel *panel)
 #endif /*CONFIG_OPLUS_SYSTEM_CHANGE*/
 
 #if defined(CONFIG_OPLUS_FEATURE_PXLW_IRIS5)
-	if (iris_is_chip_supported())
+	if (iris_is_chip_supported()) {
 		rc = iris_enable(panel, &(panel->cur_mode->priv_info->cmd_sets[DSI_CMD_SET_ON]));
-	else
+		if (panel->is_secondary) {
+			mutex_unlock(&panel->panel_lock);
+			panel->panel_initialized = true;
+			pr_err("%s current panel [%s], return rc =%d\n", panel->name, rc);
+			return rc;
+		}
+	} else
 #endif
 		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_ON);
 	if (rc)
@@ -5685,13 +5691,6 @@ int dsi_panel_enable(struct dsi_panel *panel)
 		dsi_panel_adfr_status_reset(panel);
 	}
 #endif /*CONFIG_OPLUS_SYSTEM_CHANGE*/
-
-#if defined(CONFIG_OPLUS_FEATURE_PXLW_IRIS5)
-	if (panel->is_secondary) {
-		mutex_unlock(&panel->panel_lock);
-		return rc;
-	}
-#endif
 
 #ifdef CONFIG_OPLUS_SYSTEM_CHANGE
 	panel->need_power_on_backlight = true;

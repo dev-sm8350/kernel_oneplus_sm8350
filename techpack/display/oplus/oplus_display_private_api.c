@@ -2596,6 +2596,9 @@ int dsi_display_oplus_set_power(struct drm_connector *connector,
 					} else {
 						rc = dsi_panel_tx_cmd_set(display->panel, DSI_CMD_AOD_HBM_OFF);
 					}
+					mutex_unlock(&display->panel->panel_lock);
+					/* Update aod light mode and fix 3658965*/
+					mutex_lock(&display->panel->panel_lock);
 					oplus_update_aod_light_mode_unlock(display->panel);
 
 				} else {
@@ -2804,7 +2807,7 @@ static ssize_t oplus_display_set_panel_pwr(struct kobject *obj,
 	pr_err("debug for %s, buf = [%s], id = %d value = %d, count = %d\n",
 	       __func__, buf, panel_vol_id, panel_vol_value, count);
 
-	if (panel_vol_id < 0 || panel_vol_id > PANEL_VOLTAGE_ID_MAX) {
+	if (panel_vol_id < 0 || panel_vol_id >= PANEL_VOLTAGE_ID_MAX) {
 		return -EINVAL;
 	}
 

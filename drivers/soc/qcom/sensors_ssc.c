@@ -402,7 +402,7 @@ static int sensors_ssc_probe(struct platform_device *pdev)
 
 	if (vdd_2v8 != NULL) {
 		dev_err(&pdev->dev,"%s: vdd_2v8 is not NULL\n", __func__);
-		regulator_set_voltage(vdd_2v8, 2800000, 3104000);
+		regulator_set_voltage(vdd_2v8, 2800000, 3304000);
 		//regulator_set_load(vdd_2v8, 200000);
 		ret = regulator_enable(vdd_2v8);
 		if (ret)

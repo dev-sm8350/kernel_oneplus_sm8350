@@ -9142,11 +9142,14 @@ int dsi_display_disable(struct dsi_display *display)
 
 	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY);
 
-#ifdef CONFIG_OPLUS_SYSTEM_CHANGE
+#ifdef CONFIG_DRM_OPLUS_PANEL_NOTIFY
 	blank = MSM_DRM_BLANK_POWERDOWN;
 	notifier_data.data = &blank;
 	notifier_data.id = 0;
 	msm_drm_notifier_call_chain(MSM_DRM_EARLY_EVENT_BLANK,
+					&notifier_data);
+	drm_panel_notifier_call_chain(&display->panel->drm_panel,
+					MSM_DRM_EARLY_EVENT_BLANK,
 					&notifier_data);
 #endif
 	mutex_lock(&display->display_lock);
@@ -9213,9 +9216,12 @@ int dsi_display_disable(struct dsi_display *display)
 	mutex_unlock(&display->display_lock);
 	SDE_EVT32(SDE_EVTLOG_FUNC_EXIT);
 
-#ifdef CONFIG_OPLUS_SYSTEM_CHANGE
+#ifdef CONFIG_DRM_OPLUS_PANEL_NOTIFY
 	set_oplus_display_scene(OPLUS_DISPLAY_NORMAL_SCENE);
 	msm_drm_notifier_call_chain(MSM_DRM_EVENT_BLANK,
+					&notifier_data);
+	drm_panel_notifier_call_chain(&display->panel->drm_panel,
+					MSM_DRM_EVENT_BLANK,
 					&notifier_data);
 #endif
 	return rc;

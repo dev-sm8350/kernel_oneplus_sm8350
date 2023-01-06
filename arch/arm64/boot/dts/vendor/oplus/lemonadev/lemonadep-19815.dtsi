@@ -40,6 +40,9 @@
 		platform_support_project_dir = <19815 19815 19815>;
 		platform_support_project_commandline = "mdss_dsi_samsung_amb670yf01_dsc_cmd",
 		"mdss_dsi_samsung_amb670yf01_o_dsc_cmd", "mdss_dsi_samsung_sofef00_m_video";
+        panel = <&dsi_samsung_amb670yf01_dsc_cmd
+		         &dsi_samsung_amb670yf01_o_dsc_cmd
+		         &dsi_samsung_sofef00_m_video>;
 
 		prevention,curved_screen_V2;
 		prevention,grip_disable_level = <6>;

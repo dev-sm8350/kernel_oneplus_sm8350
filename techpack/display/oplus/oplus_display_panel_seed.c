@@ -274,27 +274,11 @@ int dsi_display_seed_mode(struct dsi_display *display, int mode)
 				     DSI_CORE_CLK, DSI_CLK_ON);
 	}
 
-		if ((!strcmp(display->panel->oplus_priv.vendor_name, "AMB670YF01")) ||
-		(!strcmp(display->panel->oplus_priv.vendor_name, "AMB655X")) ||
-		(!strcmp(display->panel->oplus_priv.vendor_name, "S6E3XA1")) ||
-		(!strcmp(display->panel->oplus_priv.vendor_name, "NT37701")) ||
-		(!strcmp(display->panel->oplus_priv.vendor_name, "S6E3HC3")) ||
-		(!strcmp(display->panel->oplus_priv.vendor_name, "AMS662ZS01")) ||
-		(!strcmp(display->panel->oplus_priv.vendor_name, "AMS643YE01"))) {
-		mutex_lock(&display->panel->panel_lock);
-	}
+	mutex_lock(&display->panel->panel_lock);
 
 	rc = dsi_panel_seed_mode(display->panel, mode);
 
-	if ((!strcmp(display->panel->oplus_priv.vendor_name, "AMB670YF01")) ||
-		(!strcmp(display->panel->oplus_priv.vendor_name, "AMB655X")) ||
-		(!strcmp(display->panel->oplus_priv.vendor_name, "S6E3XA1")) ||
-		(!strcmp(display->panel->oplus_priv.vendor_name, "NT37701")) ||
-		(!strcmp(display->panel->oplus_priv.vendor_name, "S6E3HC3")) ||
-		(!strcmp(display->panel->oplus_priv.vendor_name, "AMS662ZS01")) ||
-		(!strcmp(display->panel->oplus_priv.vendor_name, "AMS643YE01"))) {
-		mutex_unlock(&display->panel->panel_lock);
-	}
+	mutex_unlock(&display->panel->panel_lock);
 
 	if (rc) {
 		pr_err("[%s] failed to dsi_panel_seed_or_loading_effect_on, rc=%d\n",
