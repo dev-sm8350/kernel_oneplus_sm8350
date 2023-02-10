@@ -194,6 +194,12 @@ vdso_prepare: prepare0
 		include/generated/vdso32-offsets.h)
 endif
 
+include $(srctree)/scripts/Makefile.defconf
+
+PHONY += virtconfig
+virtconfig:
+	$(call merge_into_defconfig_override,defconfig,virt)
+
 define archhelp
   echo  '* Image.gz      - Compressed kernel image (arch/$(ARCH)/boot/Image.gz)'
   echo  '  Image         - Uncompressed kernel image (arch/$(ARCH)/boot/Image)'
