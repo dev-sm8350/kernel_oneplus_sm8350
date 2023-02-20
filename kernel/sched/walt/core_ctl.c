@@ -75,7 +75,7 @@ static void apply_need(struct cluster_data *state);
 static void wake_up_core_ctl_thread(struct cluster_data *state);
 static bool initialized;
 
-static ATOMIC_NOTIFIER_HEAD(core_ctl_notifier);
+ATOMIC_NOTIFIER_HEAD(core_ctl_notifier);
 static unsigned int last_nr_big;
 
 static unsigned int get_active_cpu_count(const struct cluster_data *cluster);
@@ -654,8 +654,7 @@ static int compute_cluster_nr_strict_need(int index)
 	struct cluster_data *cluster;
 	int nr_strict_need = 0;
 
-	/* For single cluster skip calculations */
-	if ((index != 0) || (num_clusters < 2))
+	if (index != 0)
 		return 0;
 
 	for_each_cluster(cluster, index) {

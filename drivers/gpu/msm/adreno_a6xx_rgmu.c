@@ -484,7 +484,6 @@ static void a6xx_rgmu_disable_clks(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_rgmu_device *rgmu = to_a6xx_rgmu(adreno_dev);
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int  ret;
 
 	/* Check GX GDSC is status */
@@ -513,7 +512,6 @@ static void a6xx_rgmu_disable_clks(struct adreno_device *adreno_dev)
 	}
 
 	clk_bulk_disable_unprepare(rgmu->num_clks, rgmu->clks);
-	clear_bit(KGSL_PWRFLAGS_CLK_ON, &pwr->power_flags);
 }
 
 static int a6xx_rgmu_disable_gdsc(struct adreno_device *adreno_dev)
@@ -595,7 +593,6 @@ static int a6xx_rgmu_enable_clks(struct adreno_device *adreno_dev)
 	}
 
 	device->state = KGSL_STATE_AWARE;
-	set_bit(KGSL_PWRFLAGS_CLK_ON, &pwr->power_flags);
 
 	return 0;
 }

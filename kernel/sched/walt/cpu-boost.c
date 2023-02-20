@@ -329,7 +329,7 @@ static struct input_handler cpuboost_input_handler = {
 	.id_table       = cpuboost_ids,
 };
 
-static struct kobject *cpu_boost_kobj;
+struct kobject *cpu_boost_kobj;
 int cpu_boost_init(void)
 {
 	int cpu, ret;
