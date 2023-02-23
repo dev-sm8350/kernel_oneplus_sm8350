@@ -306,6 +306,10 @@ config ZSTD_DECOMPRESS
 	select ZSTD_COMMON
 	tristate
 
+config ZSTD_COMMON
+        select XXHASH
+        tristate
+
 source "lib/xz/Kconfig"
 
 #
