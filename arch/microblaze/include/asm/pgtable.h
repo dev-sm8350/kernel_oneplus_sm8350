@@ -46,7 +46,7 @@ extern int mem_init_done;
 
 #define swapper_pg_dir ((pgd_t *) NULL)
 
-#define arch_enter_lazy_cpu_mode()	do {} while (0)
+#define arch_enter_lazy_cpu_mode()	((void)0)
 
 #define pgprot_noncached_wc(prot)	prot
 

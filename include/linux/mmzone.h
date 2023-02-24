@@ -1431,10 +1431,10 @@ static inline int pfn_present(unsigned long pfn)
 #define early_pfn_valid(pfn)	pfn_valid(pfn)
 void sparse_init(void);
 #else
-#define sparse_init()	do {} while (0)
-#define sparse_index_init(_sec, _nid)  do {} while (0)
+#define sparse_init()	((void)0)
+#define sparse_index_init(_sec, _nid)  ((void)0)
 #define pfn_present pfn_valid
-#define subsection_map_init(_pfn, _nr_pages) do {} while (0)
+#define subsection_map_init(_pfn, _nr_pages) ((void)0)
 #endif /* CONFIG_SPARSEMEM */
 
 /*
