@@ -3675,8 +3675,8 @@ static void velocity_unregister_notifier(void)
 
 #else
 
-#define velocity_register_notifier()	do {} while (0)
-#define velocity_unregister_notifier()	do {} while (0)
+#define velocity_register_notifier()	((void)0)
+#define velocity_unregister_notifier()	((void)0)
 
 #endif	/* defined(CONFIG_PM) && defined(CONFIG_INET) */
 
