@@ -27,7 +27,7 @@
 	} while (0)
 #else
 #define bit_dbg(level, dev, format, args...) \
-	do {} while (0)
+	((void)0)
 #endif /* DEBUG */
 
 /* ----- global variables ---------------------------------------------	*/

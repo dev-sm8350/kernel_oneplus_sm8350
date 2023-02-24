@@ -37,7 +37,7 @@
 #ifdef DEBUG
 #define ulog(f, a...) fprintf(stdout, f, ##a)
 #else
-#define ulog(f, a...) do {} while (0)
+#define ulog(f, a...) ((void)0)
 #endif
 
 static int need_exit;
