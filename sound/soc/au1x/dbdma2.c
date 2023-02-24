@@ -34,7 +34,7 @@
 #ifdef PCM_DEBUG
 #define DBG		MSG
 #else
-#define DBG(x...)	do {} while (0)
+#define DBG(x...)	((void)0)
 #endif
 
 struct au1xpsc_audio_dmadata {
