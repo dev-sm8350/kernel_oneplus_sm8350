@@ -3,6 +3,7 @@
  *  Copyright (C) 2012-2013 Samsung Electronics Co., Ltd.
  */
 
+#include <linux/version.h>
 #include <linux/fs_context.h>
 #include <linux/fs_parser.h>
 #include <linux/module.h>
@@ -14,12 +15,16 @@
 #include <linux/seq_file.h>
 #include <linux/blkdev.h>
 #include <linux/fs_struct.h>
-#include <linux/iversion.h>
 #include <linux/nls.h>
 #include <linux/buffer_head.h>
+#include <linux/iversion.h>
 
 #include "exfat_raw.h"
 #include "exfat_fs.h"
+
+#ifndef CONFIG_EXFAT_DEFAULT_IOCHARSET /* if Kconfig lacked iocharset */
+#define CONFIG_EXFAT_DEFAULT_IOCHARSET  "utf8"
+#endif
 
 static char exfat_default_iocharset[] = CONFIG_EXFAT_DEFAULT_IOCHARSET;
 static struct kmem_cache *exfat_inode_cachep;
@@ -100,7 +105,6 @@ static int exfat_set_vol_flags(struct super_block *sb, unsigned short new_flags)
 {
 	struct exfat_sb_info *sbi = EXFAT_SB(sb);
 	struct boot_sector *p_boot = (struct boot_sector *)sbi->boot_bh->b_data;
-	bool sync;
 
 	/* retain persistent-flags */
 	new_flags |= sbi->vol_flags_persistent;
@@ -119,16 +123,11 @@ static int exfat_set_vol_flags(struct super_block *sb, unsigned short new_flags)
 
 	p_boot->vol_flags = cpu_to_le16(new_flags);
 
-	if ((new_flags & VOLUME_DIRTY) && !buffer_dirty(sbi->boot_bh))
-		sync = true;
-	else
-		sync = false;
-
 	set_buffer_uptodate(sbi->boot_bh);
 	mark_buffer_dirty(sbi->boot_bh);
 
-	if (sync)
-		sync_dirty_buffer(sbi->boot_bh);
+	__sync_dirty_buffer(sbi->boot_bh, REQ_SYNC | REQ_FUA | REQ_PREFLUSH);
+
 	return 0;
 }
 
@@ -174,8 +173,14 @@ static int exfat_show_options(struct seq_file *m, struct dentry *root)
 		seq_puts(m, ",errors=remount-ro");
 	if (opts->discard)
 		seq_puts(m, ",discard");
-	if (opts->time_offset)
+	if (opts->keep_last_dots)
+		seq_puts(m, ",keep_last_dots");
+	if (opts->sys_tz)
+		seq_puts(m, ",sys_tz");
+	else if (opts->time_offset)
 		seq_printf(m, ",time_offset=%d", opts->time_offset);
+	if (opts->zero_size_dir)
+		seq_puts(m, ",zero_size_dir");
 	return 0;
 }
 
@@ -183,7 +188,11 @@ static struct inode *exfat_alloc_inode(struct super_block *sb)
 {
 	struct exfat_inode_info *ei;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+	ei = alloc_inode_sb(sb, exfat_inode_cachep, GFP_NOFS);
+#else
 	ei = kmem_cache_alloc(exfat_inode_cachep, GFP_NOFS);
+#endif
 	if (!ei)
 		return NULL;
 
@@ -217,10 +226,26 @@ enum {
 	Opt_charset,
 	Opt_errors,
 	Opt_discard,
+	Opt_keep_last_dots,
+	Opt_sys_tz,
 	Opt_time_offset,
+	Opt_zero_size_dir,
+
+	/* Deprecated options */
+	Opt_utf8,
+	Opt_debug,
+	Opt_namecase,
+	Opt_codepage,
 };
 
-static const struct fs_parameter_spec exfat_param_specs[] = {
+static const struct constant_table exfat_param_enums[] = {
+	{ "continue",		EXFAT_ERRORS_CONT },
+	{ "panic",		EXFAT_ERRORS_PANIC },
+	{ "remount-ro",		EXFAT_ERRORS_RO },
+	{}
+};
+
+static const struct fs_parameter_spec exfat_parameters[] = {
 	fsparam_u32("uid",			Opt_uid),
 	fsparam_u32("gid",			Opt_gid),
 	fsparam_u32oct("umask",			Opt_umask),
@@ -228,23 +253,21 @@ static const struct fs_parameter_spec exfat_param_specs[] = {
 	fsparam_u32oct("fmask",			Opt_fmask),
 	fsparam_u32oct("allow_utime",		Opt_allow_utime),
 	fsparam_string("iocharset",		Opt_charset),
-	fsparam_enum("errors",			Opt_errors),
+	fsparam_enum("errors",			Opt_errors, exfat_param_enums),
 	fsparam_flag("discard",			Opt_discard),
+	fsparam_flag("keep_last_dots",		Opt_keep_last_dots),
+	fsparam_flag("sys_tz",			Opt_sys_tz),
 	fsparam_s32("time_offset",		Opt_time_offset),
+	fsparam_flag("zero_size_dir",		Opt_zero_size_dir),
+	__fsparam(NULL, "utf8",			Opt_utf8, fs_param_deprecated,
+		  NULL),
+	__fsparam(NULL, "debug",		Opt_debug, fs_param_deprecated,
+		  NULL),
+	__fsparam(fs_param_is_u32, "namecase",	Opt_namecase,
+		  fs_param_deprecated, NULL),
+	__fsparam(fs_param_is_u32, "codepage",	Opt_codepage,
+		  fs_param_deprecated, NULL),
 	{}
-};
-
-static const struct fs_parameter_enum exfat_param_enums[] = {
-	{ Opt_errors,	"continue",		EXFAT_ERRORS_CONT },
-	{ Opt_errors,	"panic",		EXFAT_ERRORS_PANIC },
-	{ Opt_errors,	"remount-ro",		EXFAT_ERRORS_RO },
-	{}
-};
-
-static const struct fs_parameter_description exfat_parameters = {
-	.name		= "exfat",
-	.specs		= exfat_param_specs,
-	.enums		= exfat_param_enums,
 };
 
 static int exfat_parse_param(struct fs_context *fc, struct fs_parameter *param)
@@ -254,7 +277,7 @@ static int exfat_parse_param(struct fs_context *fc, struct fs_parameter *param)
 	struct fs_parse_result result;
 	int opt;
 
-	opt = fs_parse(fc, &exfat_parameters, param, &result);
+	opt = fs_parse(fc, exfat_parameters, param, &result);
 	if (opt < 0)
 		return opt;
 
@@ -289,6 +312,12 @@ static int exfat_parse_param(struct fs_context *fc, struct fs_parameter *param)
 	case Opt_discard:
 		opts->discard = 1;
 		break;
+	case Opt_keep_last_dots:
+		opts->keep_last_dots = 1;
+		break;
+	case Opt_sys_tz:
+		opts->sys_tz = 1;
+		break;
 	case Opt_time_offset:
 		/*
 		 * Make the limit 24 just in case someone invents something
@@ -297,6 +326,14 @@ static int exfat_parse_param(struct fs_context *fc, struct fs_parameter *param)
 		if (result.int_32 < -24 * 60 || result.int_32 > 24 * 60)
 			return -EINVAL;
 		opts->time_offset = result.int_32;
+		break;
+	case Opt_zero_size_dir:
+		opts->zero_size_dir = true;
+		break;
+	case Opt_utf8:
+	case Opt_debug:
+	case Opt_namecase:
+	case Opt_codepage:
 		break;
 	default:
 		return -EINVAL;
@@ -346,22 +383,31 @@ static int exfat_read_root(struct inode *inode)
 
 	inode->i_uid = sbi->options.fs_uid;
 	inode->i_gid = sbi->options.fs_gid;
+
 	inode_inc_iversion(inode);
 	inode->i_generation = 0;
-	inode->i_mode = exfat_make_mode(sbi, ATTR_SUBDIR, 0777);
+	inode->i_mode = exfat_make_mode(sbi, EXFAT_ATTR_SUBDIR, 0777);
 	inode->i_op = &exfat_dir_inode_operations;
 	inode->i_fop = &exfat_dir_operations;
 
-	inode->i_blocks = ((i_size_read(inode) + (sbi->cluster_size - 1))
-			& ~(sbi->cluster_size - 1)) >> inode->i_blkbits;
-	EXFAT_I(inode)->i_pos = ((loff_t)sbi->root_dir << 32) | 0xffffffff;
-	EXFAT_I(inode)->i_size_aligned = i_size_read(inode);
-	EXFAT_I(inode)->i_size_ondisk = i_size_read(inode);
+	inode->i_blocks = round_up(i_size_read(inode), sbi->cluster_size) >> 9;
+	ei->i_pos = ((loff_t)sbi->root_dir << 32) | 0xffffffff;
+	ei->i_size_aligned = i_size_read(inode);
+	ei->i_size_ondisk = i_size_read(inode);
 
-	exfat_save_attr(inode, ATTR_SUBDIR);
+	exfat_save_attr(inode, EXFAT_ATTR_SUBDIR);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0)
+	ei->i_crtime = simple_inode_init_ts(inode);
+	exfat_truncate_inode_atime(inode);
+#else
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+	inode->i_mtime = inode->i_atime = ei->i_crtime = inode_set_ctime_current(inode);
+#else
 	inode->i_mtime = inode->i_atime = inode->i_ctime = ei->i_crtime =
 		current_time(inode);
+#endif
 	exfat_truncate_atime(&inode->i_atime);
+#endif
 	return 0;
 }
 
@@ -369,8 +415,7 @@ static int exfat_calibrate_blocksize(struct super_block *sb, int logical_sect)
 {
 	struct exfat_sb_info *sbi = EXFAT_SB(sb);
 
-	if (!is_power_of_2(logical_sect) ||
-	    logical_sect < 512 || logical_sect > 4096) {
+	if (!is_power_of_2(logical_sect)) {
 		exfat_err(sb, "bogus logical sector size %u", logical_sect);
 		return -EIO;
 	}
@@ -439,6 +484,25 @@ static int exfat_read_boot_sector(struct super_block *sb)
 		return -EINVAL;
 	}
 
+	/*
+	 * sect_size_bits could be at least 9 and at most 12.
+	 */
+	if (p_boot->sect_size_bits < EXFAT_MIN_SECT_SIZE_BITS ||
+	    p_boot->sect_size_bits > EXFAT_MAX_SECT_SIZE_BITS) {
+		exfat_err(sb, "bogus sector size bits : %u",
+				p_boot->sect_size_bits);
+		return -EINVAL;
+	}
+
+	/*
+	 * sect_per_clus_bits could be at least 0 and at most 25 - sect_size_bits.
+	 */
+	if (p_boot->sect_per_clus_bits > EXFAT_MAX_SECT_PER_CLUS_BITS(p_boot)) {
+		exfat_err(sb, "bogus sectors bits per cluster : %u",
+				p_boot->sect_per_clus_bits);
+		return -EINVAL;
+	}
+
 	sbi->sect_per_clus = 1 << p_boot->sect_per_clus_bits;
 	sbi->sect_per_clus_bits = p_boot->sect_per_clus_bits;
 	sbi->cluster_size_bits = p_boot->sect_per_clus_bits +
@@ -465,16 +529,19 @@ static int exfat_read_boot_sector(struct super_block *sb)
 	sbi->used_clusters = EXFAT_CLUSTERS_UNTRACKED;
 
 	/* check consistencies */
-	if (sbi->num_FAT_sectors << p_boot->sect_size_bits <
-	    sbi->num_clusters * 4) {
+	if ((u64)sbi->num_FAT_sectors << p_boot->sect_size_bits <
+	    (u64)sbi->num_clusters * 4) {
 		exfat_err(sb, "bogus fat length");
 		return -EINVAL;
 	}
+
 	if (sbi->data_start_sector <
-	    sbi->FAT1_start_sector + sbi->num_FAT_sectors * p_boot->num_fats) {
+	    (u64)sbi->FAT1_start_sector +
+	    (u64)sbi->num_FAT_sectors * p_boot->num_fats) {
 		exfat_err(sb, "bogus data start sector");
 		return -EINVAL;
 	}
+
 	if (sbi->vol_flags & VOLUME_DIRTY)
 		exfat_warn(sb, "Volume was not properly unmounted. Some data may be corrupt. Please run fsck.");
 	if (sbi->vol_flags & MEDIA_FAILURE)
@@ -584,14 +651,20 @@ free_bh:
 
 static int exfat_fill_super(struct super_block *sb, struct fs_context *fc)
 {
-	struct exfat_sb_info *sbi = sb->s_fs_info;
-	struct exfat_mount_options *opts = &sbi->options;
 	struct inode *root_inode;
 	int err;
+	struct exfat_sb_info *sbi = sb->s_fs_info;
+	struct exfat_mount_options *opts = &sbi->options;
 
 	if (opts->allow_utime == (unsigned short)-1)
 		opts->allow_utime = ~opts->fs_dmask & 0022;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 0)
+	if (opts->discard && !bdev_max_discard_sectors(sb->s_bdev)) {
+		exfat_warn(sb, "mounting with \"discard\" option, but the device does not support discard");
+		opts->discard = 0;
+	}
+#else
 	if (opts->discard) {
 		struct request_queue *q = bdev_get_queue(sb->s_bdev);
 
@@ -600,6 +673,7 @@ static int exfat_fill_super(struct super_block *sb, struct fs_context *fc)
 			opts->discard = 0;
 		}
 	}
+#endif
 
 	sb->s_flags |= SB_NODIRATIME;
 	sb->s_magic = EXFAT_SUPER_MAGIC;
@@ -643,6 +717,7 @@ static int exfat_fill_super(struct super_block *sb, struct fs_context *fc)
 	}
 
 	root_inode->i_ino = EXFAT_ROOT_INO;
+
 	inode_set_iversion(root_inode, 1);
 	err = exfat_read_root(root_inode);
 	if (err) {
@@ -657,7 +732,7 @@ static int exfat_fill_super(struct super_block *sb, struct fs_context *fc)
 	if (!sb->s_root) {
 		exfat_err(sb, "failed to get the root dentry");
 		err = -ENOMEM;
-		goto put_inode;
+		goto free_table;
 	}
 
 	return 0;
@@ -719,6 +794,7 @@ static int exfat_init_fs_context(struct fs_context *fc)
 		return -ENOMEM;
 
 	mutex_init(&sbi->s_lock);
+	mutex_init(&sbi->bitmap_lock);
 	ratelimit_state_init(&sbi->ratelimit, DEFAULT_RATELIMIT_INTERVAL,
 			DEFAULT_RATELIMIT_BURST);
 
@@ -739,7 +815,7 @@ static struct file_system_type exfat_fs_type = {
 	.owner			= THIS_MODULE,
 	.name			= "exfat",
 	.init_fs_context	= exfat_init_fs_context,
-	.parameters		= &exfat_parameters,
+	.parameters		= exfat_parameters,
 	.kill_sb		= kill_block_super,
 	.fs_flags		= FS_REQUIRES_DEV,
 };
@@ -805,3 +881,4 @@ MODULE_ALIAS_FS("exfat");
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("exFAT filesystem support");
 MODULE_AUTHOR("Samsung Electronics Co., Ltd.");
+MODULE_VERSION(EXFAT_VERSION);
