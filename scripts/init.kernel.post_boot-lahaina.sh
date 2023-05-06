@@ -110,6 +110,8 @@ echo 10 10 10 10 10 10 10 95 > /proc/sys/kernel/sched_coloc_busy_hyst_cpu_busy_p
 # set the threshold for low latency task boost feature which prioritize
 # binder activity tasks
 echo 325 > /proc/sys/kernel/walt_low_latency_task_threshold
+# change colocation threshold
+echo 162 > /proc/sys/kernel/sched_min_task_util_for_colocation
 
 # cpuset parameters
 echo 0-1 > /dev/cpuset/background/cpus
