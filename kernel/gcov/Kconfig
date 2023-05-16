@@ -1,6 +1,27 @@
 # SPDX-License-Identifier: GPL-2.0-only
 menu "GCOV-based kernel profiling"
 
+config PGO_GEN
+	bool "Enable profiling for kernel"
+	depends on CC_IS_GCC && GCC_VERSION > 100000
+	depends on DEBUG_FS
+	select GCOV_KERNEL
+	select GCOV_PROFILE_ALL
+	default n
+	help
+	  This option enables profile guided optimization for kernel.
+
+	  If unsure, say N.
+
+config PGO_USE
+	bool "Use generated profile to optimize the kernel"
+	depends on CC_IS_GCC && GCC_VERSION > 100000
+	default n
+	---help---
+	This option use profile generated from profiling stage to optimize the kernel.
+
+	If unsure, say N.
+
 config GCOV_KERNEL
 	bool "Enable gcov-based kernel profiling"
 	depends on DEBUG_FS
