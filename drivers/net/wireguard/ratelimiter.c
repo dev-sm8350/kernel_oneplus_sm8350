@@ -78,7 +78,7 @@ static void wg_ratelimiter_gc_entries(struct work_struct *work)
 			cond_resched();
 	}
 	if (likely(work))
-		queue_delayed_work(system_power_efficient_wq, &gc_work, HZ);
+		queue_delayed_work(system_wq, &gc_work, HZ);
 }
 
 bool wg_ratelimiter_allow(struct sk_buff *skb, struct net *net)
@@ -188,7 +188,7 @@ int wg_ratelimiter_init(void)
 	}
 #endif
 
-	queue_delayed_work(system_power_efficient_wq, &gc_work, HZ);
+	queue_delayed_work(system_wq, &gc_work, HZ);
 	get_random_bytes(&key, sizeof(key));
 out:
 	mutex_unlock(&init_lock);
