@@ -2631,6 +2631,7 @@ static void msm_hs_get_pinctrl_configs(struct uart_port *uport)
 	}
 pinctrl_fail:
 	msm_uport->pinctrl = NULL;
+	return;
 }
 
 /* Called when port is opened */
