@@ -545,7 +545,7 @@ export KBUILD_AFLAGS_MODULE KBUILD_CFLAGS_MODULE KBUILD_LDFLAGS_MODULE
 export KBUILD_AFLAGS_KERNEL KBUILD_CFLAGS_KERNEL
 
 ifdef CONFIG_GCC_GRAPHITE
-KBUILD_CFLAGS	+= -fipa-pta -fgraphite-identity -floop-nest-optimize
+KBUILD_CFLAGS	+= -fipa-pta -fgraphite-identity -floop-nest-optimize -fno-semantic-interposition
 endif
 
 # Files to ignore in find ... statements
