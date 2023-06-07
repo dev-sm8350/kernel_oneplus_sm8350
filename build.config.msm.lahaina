@@ -53,4 +53,6 @@ esac
 
 ################################################################################
 ## Inherit perf configs
+if [ ${GCOV_PROFILE} != 1 ]; then
 . ${KERNEL_DIR}/build.config.common.performance
+fi
