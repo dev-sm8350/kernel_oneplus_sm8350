@@ -921,7 +921,8 @@ static ssize_t devkmsg_write(struct kiocb *iocb, struct iov_iter *from)
 	}
 
 	if (strstr(line, "healthd") || strstr(line, "logd") ||
-	    strstr(line, "DM_DEV_STATUS") || strstr(line, "Untracked pid"))
+	    strstr(line, "DM_DEV_STATUS") || strstr(line, "Untracked pid") ||
+	    strstr(line, "usb_gadget"))
 		return len;
 
 	devkmsg_emit(facility, level, "%s", line);
