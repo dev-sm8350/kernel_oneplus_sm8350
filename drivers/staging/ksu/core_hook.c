@@ -7,6 +7,7 @@
 #include "linux/kernel.h"
 #include "linux/kprobes.h"
 #include "linux/lsm_hooks.h"
+#include "linux/module.h"
 #include "linux/nsproxy.h"
 #include "linux/path.h"
 #include "linux/printk.h"
@@ -15,9 +16,11 @@
 #include "linux/version.h"
 #include "linux/mount.h"
 
+#include "linux/proc_fs.h"
 #include "linux/fs.h"
 #include "linux/namei.h"
 #include "linux/rcupdate.h"
+#include "linux/seq_file.h"
 
 #include "allowlist.h"
 #include "arch.h"
@@ -33,6 +36,9 @@
 static bool ksu_module_mounted = false;
 
 extern int handle_sepolicy(unsigned long arg3, void __user *arg4);
+int vmin_ksu = KERNEL_SU_VERSION;
+int __read_mostly ksu_version = 0;
+module_param(ksu_version, int, 0644);
 
 static inline bool is_allow_su()
 {
@@ -307,7 +313,9 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
 	// Both root manager and root processes should be allowed to get version
 	if (arg2 == CMD_GET_VERSION) {
 		if (is_manager() || 0 == current_uid().val) {
-			u32 version = KERNEL_SU_VERSION;
+			if (ksu_version < vmin_ksu)
+				ksu_version = vmin_ksu;
+			u32 version = (u32) ksu_version;
 			if (copy_to_user(arg3, &version, sizeof(version))) {
 				pr_err("prctl reply error, cmd: %lu\n", arg2);
 			}
