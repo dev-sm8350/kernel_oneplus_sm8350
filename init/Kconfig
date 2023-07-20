@@ -1579,7 +1579,7 @@ config AIO
 config IO_URING
 	bool "Enable IO uring support" if EXPERT
 	select ANON_INODES
-	default y
+	default n
 	help
 	  This option enables support for the io_uring interface, enabling
 	  applications to submit and complete IO through submission and
