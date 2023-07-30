@@ -12,7 +12,7 @@ KERNEL_SRC ?= /lib/modules/$(shell uname -r)/build
 M ?= $(shell pwd)
 
 # WLAN_ROOT must contain an absolute path (i.e. not a relative path)
-KBUILD_OPTIONS := WLAN_ROOT=$(shell cd $(KERNEL_SRC); readlink -e $(M))
+KBUILD_OPTIONS := WLAN_ROOT=$(srctree)/$(src)
 
 # MODNAME should be qca_cld3_wlan for helium based wear target
 ifeq (qca_cld3, $(WLAN_WEAR_CHIPSET))
@@ -28,6 +28,7 @@ KBUILD_OPTIONS += CONFIG_QCA_WIFI_2_0=1
 KBUILD_OPTIONS += $(WLAN_SELECT)
 KBUILD_OPTIONS += $(KBUILD_EXTRA) # Extra config if any
 KBUILD_OPTIONS += TARGET_BUILD_VARIANT=user
+KBUILD_OPTIONS += WLAN_COMMON_ROOT=../qca-wifi-host-cmn
 
 all:
 	$(MAKE) -C $(KERNEL_SRC) M=$(M) modules $(KBUILD_OPTIONS)
