@@ -522,21 +522,37 @@ uint32_t fdt_get_phandle(const void *fdt, int nodeoffset)
 	return fdt32_ld_(php);
 }
 
-const char *fdt_get_alias_namelen(const void *fdt,
-				  const char *name, int namelen)
+static const void *fdt_path_getprop_namelen(const void *fdt, const char *path,
+					    const char *propname, int propnamelen,
+					    int *lenp)
 {
-	int aliasoffset;
-
-	aliasoffset = fdt_path_offset(fdt, "/aliases");
-	if (aliasoffset < 0)
+	int offset = fdt_path_offset(fdt, path);
+	if (offset < 0)
 		return NULL;
 
-	return fdt_getprop_namelen(fdt, aliasoffset, name, namelen, NULL);
+	return fdt_getprop_namelen(fdt, offset, propname, propnamelen, lenp);
+}
+
+	const char *fdt_get_alias_namelen(const void *fdt,
+				  const char *name, int namelen)
+	{
+	return fdt_path_getprop_namelen(fdt, "/aliases", name, namelen, NULL);
 }
 
 const char *fdt_get_alias(const void *fdt, const char *name)
 {
 	return fdt_get_alias_namelen(fdt, name, strlen(name));
+}
+
+const char *fdt_get_symbol_namelen(const void *fdt,
+				   const char *name, int namelen)
+{
+	return fdt_path_getprop_namelen(fdt, "/__symbols__", name, namelen, NULL);
+}
+
+const char *fdt_get_symbol(const void *fdt, const char *name)
+{
+	return fdt_get_symbol_namelen(fdt, name, strlen(name));
 }
 
 int fdt_get_path(const void *fdt, int nodeoffset, char *buf, int buflen)
