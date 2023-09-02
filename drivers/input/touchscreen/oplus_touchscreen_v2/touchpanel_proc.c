@@ -3054,6 +3054,8 @@ int init_touchpanel_proc(struct touchpanel_data *ts)
 	int ret = 0;
 	int i = 0;
 	struct proc_dir_entry *prEntry_tp = NULL;
+	struct proc_dir_entry *prEntry_tmp = NULL;
+	char sysfs_path[128], *__sysfs_path;
 	char name[TP_NAME_SIZE_MAX];
 
 	tp_proc_node tp_proc_node[] = {
@@ -3230,7 +3232,54 @@ int init_touchpanel_proc(struct touchpanel_data *ts)
 	/*create debug_info node*/
 	init_debug_info_proc(ts);
 
+	// Create a symlink of /sys i2c path to procfs for easy lookup
+	__sysfs_path = kobject_get_path(&ts->client->dev.kobj, GFP_KERNEL);
+	if (__sysfs_path == NULL) {
+		TPD_INFO("%s: Couldn't resolve sysfs path, %d\n", __func__, __LINE__);
+	} else {
+		sprintf(sysfs_path, "/sys%s", __sysfs_path);
+		kfree(__sysfs_path);
+		prEntry_tmp = proc_symlink("i2c", prEntry_tp, sysfs_path);
+		if (prEntry_tmp == NULL)
+			TPD_INFO("%s: Couldn't create proc symlink, %d\n", __func__, __LINE__);
+	}
+
 	return ret;
+}
+
+static inline ssize_t double_tap_pressed_get(struct device *device,
+				struct device_attribute *attribute,
+				char *buffer)
+{
+	struct touchpanel_data *ts = dev_get_drvdata(device);
+	return scnprintf(buffer, PAGE_SIZE, "%i\n", ts->double_tap_pressed);
+}
+
+static DEVICE_ATTR(double_tap_pressed, S_IRUGO, double_tap_pressed_get, NULL);
+
+static inline ssize_t single_tap_pressed_get(struct device *device,
+                                struct device_attribute *attribute,
+                                char *buffer)
+{
+        struct touchpanel_data *ts = dev_get_drvdata(device);
+        return scnprintf(buffer, PAGE_SIZE, "%i\n", ts->single_tap_pressed);
+}
+
+static DEVICE_ATTR(single_tap_pressed, S_IRUGO, single_tap_pressed_get, NULL);
+
+void init_touchpanel_proc_sysfs(struct touchpanel_data *ts)
+{
+	TPD_INFO("%s entry\n", __func__);
+
+	if (device_create_file(&ts->client->dev, &dev_attr_double_tap_pressed)) {
+		TPD_INFO("driver_create_file failt\n");
+	}
+
+        if (device_create_file(&ts->client->dev, &dev_attr_single_tap_pressed)) {
+                TPD_INFO("driver_create_file failt\n");
+        }
+
+	TPD_INFO("sysfs files for double and single tap was registered\n");
 }
 
 void remove_touchpanel_proc(struct touchpanel_data *ts)
