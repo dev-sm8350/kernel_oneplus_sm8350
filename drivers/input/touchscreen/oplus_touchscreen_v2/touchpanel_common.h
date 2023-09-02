@@ -777,6 +777,8 @@ struct touchpanel_data {
 	int irq_need_dev_resume_time;                       /*control setting of wait resume time*/
 	int gesture_enable;                                 /*control state of black gesture*/
 	bool double_tap_to_wake_enable;                     /*control state of dt2w*/
+	int double_tap_pressed;
+	int single_tap_pressed;
 	struct gesture_info    gesture;                     /*gesture related info*/
 	int gesture_enable_indep;                         /*independent control state of black gesture*/
 
