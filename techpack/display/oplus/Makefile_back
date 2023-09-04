@@ -6,7 +6,6 @@ ccflags-y += -I$(srctree)/techpack/display/msm/sde
 ccflags-y += -I$(srctree)/techpack/display/rotator
 ccflags-y += -I$(srctree)/techpack/display/oplus
 ccflags-y += -I$(srctree)/drivers/clk/qcom
-ccflags-y += -I$(srctree)/techpack/display/msm/dsi/iris
 
 oplus_lcd-y += oplus_mm_kevent.o
 oplus_lcd-y += oplus_mm_kevent_fb.o
