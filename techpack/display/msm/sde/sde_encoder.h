@@ -250,9 +250,6 @@ struct sde_encoder_virt {
 	struct input_handler *input_handler;
 	bool input_handler_registered;
 	struct msm_display_topology topology;
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-	struct kthread_work disable_autorefresh_work;
-#endif
 	bool vblank_enabled;
 	bool idle_pc_restore;
 	enum frame_trigger_mode_type frame_trigger_mode;
@@ -675,33 +672,4 @@ static inline bool sde_encoder_is_widebus_enabled(struct drm_encoder *drm_enc)
 	return sde_enc->mode_info.wide_bus_en;
 }
 
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-/**
- * sde_encoder_rc_lock - lock the sde encoder resource control.
- * @drm_enc:    Pointer to drm encoder structure
- * @Return:     void.
- */
-void sde_encoder_rc_lock(struct drm_encoder *drm_enc);
-
-/**
- * sde_encoder_rc_unlock - unlock the sde encoder resource control.
- * @drm_enc:    Pointer to drm encoder structure
- * @Return:     void.
- */
-void sde_encoder_rc_unlock(struct drm_encoder *drm_enc);
-
-/**
- * sde_encoder_disable_autorefresh - disable autorefresh
- * @drm_enc:    Pointer to drm encoder structure
- * @Return:     void.
- */
-void sde_encoder_disable_autorefresh_handler(struct drm_encoder *drm_enc);
-
-/**
- * sde_encoder_is_disabled - encoder is disabled
- * @drm_enc:    Pointer to drm encoder structure
- * @Return:     bool.
- */
-bool sde_encoder_is_disabled(struct drm_encoder *drm_enc);
-#endif
 #endif /* __SDE_ENCODER_H__ */
