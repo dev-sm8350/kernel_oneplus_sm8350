@@ -82,15 +82,6 @@ struct kernel_loglevel {
 	unsigned int log_level;
 };
 
-struct softiris_color
-{
-	uint32_t color_vivid_status; //[0:1] [not support:support]
-	uint32_t color_srgb_status; //[0:1] [not support:support]
-	uint32_t color_softiris_status;
-	uint32_t color_dual_panel_status;
-	uint32_t color_dual_brightness_status;
-};
-
 /*oplus ioctl case start*/
 #define PANEL_COMMOND_BASE 0x00
 #define PANEL_COMMOND_MAX  0xBD

@@ -1028,9 +1028,6 @@ gen_headers_out_arm64 = [
     "display/hdcp/msm_hdmi_hdcp_mgr.h",
     "vidc/media/msm_media_info.h",
     "vidc/media/msm_vidc_utils.h",
-//ifdef OPLUS_FEATURE_PXLW_IRIS5
-    "display/drm/msm_drm_iris.h",
-//endif
 ]
 
 genrule {
