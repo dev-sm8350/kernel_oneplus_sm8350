@@ -14,10 +14,6 @@
 #include "dsi_display.h"
 #include "oplus_display_private_api.h"
 
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-#include "iris/dsi_iris5_api.h"
-#endif
-
 #define PP_TEAR_CHECK_EN                0x000
 #define PP_SYNC_CONFIG_VSYNC            0x004
 #define PP_SYNC_CONFIG_HEIGHT           0x008
@@ -359,9 +355,6 @@ static int sde_hw_pp_setup_dither(struct sde_hw_pingpong *pp,
 		return -EINVAL;
 
 	offset += 4;
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-	iris_sde_update_dither_depth_map(dither_depth_map);
-#endif
 //#ifdef OPLUS_BUG_STABILITY
 	if (!strcmp(display->panel->oplus_priv.vendor_name, "AMS662ZS01")) {
 		data = 2 & REG_MASK(2);
