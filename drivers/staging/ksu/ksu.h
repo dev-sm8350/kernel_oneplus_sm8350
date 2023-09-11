@@ -4,6 +4,7 @@
 #include "linux/types.h"
 #include "linux/workqueue.h"
 
+// KSU Version
 #define KERNEL_SU_VERSION KSU_VERSION
 #define KERNEL_SU_OPTION 0xDEADBEEF
 
