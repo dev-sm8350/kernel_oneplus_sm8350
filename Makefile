@@ -496,7 +496,14 @@ KBUILD_CFLAGS   := -Wall -Wundef -Werror=strict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common -fshort-wchar -fno-PIE \
 		   -Werror=implicit-function-declaration -Werror=implicit-int \
 		   -Werror=return-type -Wno-format-security \
-		   -std=gnu89 -pipe
+		   -std=gnu89 -pipe \
+		   -mcpu=cortex-a55 -fdiagnostics-color=always \
+		   -Wno-misleading-indentation -Wno-unused-function -Wno-bool-operation \
+		   -Wno-unused-variable -Wno-pointer-to-int-cast \
+		   -Wno-unused-but-set-variable \
+		   -Wno-unused-result -Wno-deprecated -Wno-deprecated-declarations -Wformat=0 \
+		   -Wno-enum-conversion -Wno-array-parameter
+
 KBUILD_CPPFLAGS := -D__KERNEL__
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
@@ -1041,12 +1048,11 @@ endif
 
 ifdef CONFIG_LTO_CLANG
 ifdef CONFIG_THINLTO
-CC_FLAGS_LTO_CLANG := -flto=thin $(call cc-option, -fsplit-lto-unit)
+CC_FLAGS_LTO_CLANG := -flto=thin $(call cc-option, -fsplit-lto-unit) $(call cc-option, -fvisibility=default)
 KBUILD_LDFLAGS	+= --thinlto-cache-dir=.thinlto-cache
 else
-CC_FLAGS_LTO_CLANG := -flto
+CC_FLAGS_LTO_CLANG := -flto -fvisibility=hidden
 endif
-CC_FLAGS_LTO_CLANG += -fvisibility=default
 
 KBUILD_LDS_MODULE += $(srctree)/scripts/module-lto.lds
 
