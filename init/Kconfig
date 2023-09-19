@@ -386,6 +386,7 @@ config USELIB
 
 config AUDIT
 	bool "Auditing support"
+	default n
 	depends on NET
 	help
 	  Enable auditing infrastructure that can be used with another
