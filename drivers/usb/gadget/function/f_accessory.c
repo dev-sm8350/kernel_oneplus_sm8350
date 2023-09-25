@@ -123,6 +123,10 @@ struct acc_dev {
 	/* worker for registering and unregistering hid devices */
 	struct work_struct hid_work;
 
+	struct work_struct okcar_start_work;
+
+	struct work_struct hid_iap_start_work;
+
 	/* list of active HID devices */
 	struct list_head	hid_list;
 
@@ -299,6 +303,8 @@ static void __put_acc_dev(struct kref *kref)
 	/* Cancel any async work */
 	cancel_delayed_work_sync(&dev->start_work);
 	cancel_work_sync(&dev->hid_work);
+	cancel_work_sync(&dev->okcar_start_work);
+	cancel_work_sync(&dev->hid_iap_start_work);
 
 	ref->acc_dev = NULL;
 	kfree(dev);
@@ -963,6 +969,34 @@ static void acc_complete_setup_noop(struct usb_ep *ep, struct usb_request *req)
 	 */
 }
 
+static bool in_okcar_mode(struct usb_composite_dev *cdev){	
+	struct usb_configuration *c;
+	struct usb_function		*f = NULL;
+	bool fun_found = false;
+	list_for_each_entry(c, &cdev->configs, list){
+		list_for_each_entry(f, &c->functions, list) {
+			if(f->name){						
+				if (strcmp(f->name, "okcar_image") == 0){					
+					fun_found = true;
+				}
+			}					
+		}
+	}
+	return fun_found;
+}
+
+static void acc_okcar_start_work(struct work_struct *data)
+{
+	char *envp[2] = { "PCCONNECT=ACCESSOTY_ATTACHED", NULL };
+	kobject_uevent_env(&acc_device.this_device->kobj, KOBJ_CHANGE, envp);
+}
+
+static void acc_hid_iap_start_work(struct work_struct *data)
+{
+	char *envp[2] = { "PCCONNECT=HID_IAP2_START", NULL };
+	kobject_uevent_env(&acc_device.this_device->kobj, KOBJ_CHANGE, envp);
+}
+
 int acc_ctrlrequest(struct usb_composite_dev *cdev,
 				const struct usb_ctrlrequest *ctrl)
 {
@@ -976,6 +1010,7 @@ int acc_ctrlrequest(struct usb_composite_dev *cdev,
 	u16	w_value = le16_to_cpu(ctrl->wValue);
 	u16	w_length = le16_to_cpu(ctrl->wLength);
 	unsigned long flags;
+	bool okcar_mode = false;
 
 	/*
 	 * If instance is not created which is the case in power off charging
@@ -984,7 +1019,9 @@ int acc_ctrlrequest(struct usb_composite_dev *cdev,
 	if (!dev)
 		return -ENODEV;
 
-	if (b_requestType == (USB_DIR_OUT | USB_TYPE_VENDOR)) {
+	okcar_mode = in_okcar_mode(cdev);
+
+	if (!okcar_mode && b_requestType == (USB_DIR_OUT | USB_TYPE_VENDOR)) {
 		if (b_request == ACCESSORY_START) {
 			dev->start_requested = 1;
 			schedule_delayed_work(
@@ -1036,7 +1073,7 @@ int acc_ctrlrequest(struct usb_composite_dev *cdev,
 			cdev->req->complete = acc_complete_send_hid_event;
 			value = w_length;
 		}
-	} else if (b_requestType == (USB_DIR_IN | USB_TYPE_VENDOR)) {
+	} else if (!okcar_mode && b_requestType == (USB_DIR_IN | USB_TYPE_VENDOR)) {
 		if (b_request == ACCESSORY_GET_PROTOCOL) {
 			*((u16 *)cdev->req->buf) = PROTOCOL_VERSION;
 			value = sizeof(u16);
@@ -1052,6 +1089,21 @@ int acc_ctrlrequest(struct usb_composite_dev *cdev,
 			dev->audio_mode = 0;
 			strlcpy(dev->manufacturer, "Android", ACC_STRING_SIZE);
 			strlcpy(dev->model, "Android", ACC_STRING_SIZE);
+		}
+		
+	}
+
+	if (okcar_mode) {
+		if (b_requestType == (USB_DIR_OUT | USB_TYPE_VENDOR)) {
+			if (b_request == 0x51) {
+				value = 0;
+				schedule_work(&dev->okcar_start_work);
+			}
+		} else if (b_requestType == (USB_DIR_IN | USB_TYPE_VENDOR)) {
+			if (b_request == 0x53) {
+				*((u32 *)cdev->req->buf) = 0x00000001;
+				value = sizeof(u32);
+			}
 		}
 	}
 
@@ -1391,6 +1443,8 @@ static int acc_setup(void)
 	INIT_LIST_HEAD(&dev->dead_hid_list);
 	INIT_DELAYED_WORK(&dev->start_work, acc_start_work);
 	INIT_WORK(&dev->hid_work, acc_hid_work);
+	INIT_WORK(&dev->okcar_start_work, acc_okcar_start_work);
+	INIT_WORK(&dev->hid_iap_start_work,acc_hid_iap_start_work);
 
 	dev->ref = ref;
 	if (cmpxchg_relaxed(&ref->acc_dev, NULL, dev)) {
@@ -1425,6 +1479,14 @@ void acc_disconnect(void)
 	put_acc_dev(dev);
 }
 EXPORT_SYMBOL_GPL(acc_disconnect);
+
+void notify_hid_iap_start(void)
+{
+	struct acc_dev *dev = get_acc_dev();
+
+	schedule_work(&dev->hid_iap_start_work);
+}
+EXPORT_SYMBOL_GPL(notify_hid_iap_start);
 
 static void acc_cleanup(void)
 {
