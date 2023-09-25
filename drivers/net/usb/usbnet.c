@@ -846,6 +846,7 @@ int usbnet_stop (struct net_device *net)
 	del_timer_sync (&dev->delay);
 	tasklet_kill (&dev->bh);
 	cancel_work_sync(&dev->kevent);
+	cancel_delayed_work_sync(&dev->fake_netconnect_kevent);
 	if (!pm)
 		usb_autopm_put_interface(dev->intf);
 
@@ -1242,6 +1243,22 @@ skip_reset:
 		netdev_dbg(dev->net, "kevent done, flags = 0x%lx\n", dev->flags);
 }
 
+/**
+ * Some Accessory(Mercedes C260 2022) lack dev->status
+ * which can prevent the normal start of USB NCM communication. 
+ * Here, we use some hack methods to fix it.
+ */
+static void
+usbnet_delay_notify_neton_kevent (struct work_struct *work)
+{
+	struct delayed_work *delayed_work = container_of(work, struct delayed_work, work);
+	struct usbnet		*dev =
+		container_of(delayed_work, struct usbnet, fake_netconnect_kevent);
+
+	usbnet_link_change(dev, true, 0);
+	dev_info(&dev->udev->dev,
+			"cdc_ncm lack dev->status, call usbnet_link_change(dev, true, 0) hardcode\n");
+}
 /*-------------------------------------------------------------------------*/
 
 static void tx_complete (struct urb *urb)
@@ -1719,6 +1736,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	dev->bh.func = usbnet_bh_tasklet;
 	dev->bh.data = (unsigned long)&dev->delay;
 	INIT_WORK (&dev->kevent, usbnet_deferred_kevent);
+	INIT_DELAYED_WORK (&dev->fake_netconnect_kevent, usbnet_delay_notify_neton_kevent);
 	init_usb_anchor(&dev->deferred);
 	timer_setup(&dev->delay, usbnet_bh, 0);
 	mutex_init (&dev->phy_mutex);
@@ -1747,19 +1765,22 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 		if (status < 0)
 			goto out1;
 
-		// heuristic:  "usb%d" for links we know are two-host,
-		// else "eth%d" when there's reasonable doubt.  userspace
-		// can rename the link if it knows better.
-		if ((dev->driver_info->flags & FLAG_ETHER) != 0 &&
-		    ((dev->driver_info->flags & FLAG_POINTTOPOINT) == 0 ||
-		     (net->dev_addr [0] & 0x02) == 0))
-			strcpy (net->name, "eth%d");
-		/* WLAN devices should always be named "wlan%d" */
-		if ((dev->driver_info->flags & FLAG_WLAN) != 0)
-			strcpy(net->name, "wlan%d");
-		/* WWAN devices should always be named "wwan%d" */
-		if ((dev->driver_info->flags & FLAG_WWAN) != 0)
-			strcpy(net->name, "wwan%d");
+		/*
+		 * In NetworkManagementService.java, usb0 addition will be monitored to establish NCM communication
+		 */
+		// // heuristic:  "usb%d" for links we know are two-host,
+		// // else "eth%d" when there's reasonable doubt.  userspace
+		// // can rename the link if it knows better.
+		// if ((dev->driver_info->flags & FLAG_ETHER) != 0 &&
+		//     ((dev->driver_info->flags & FLAG_POINTTOPOINT) == 0 ||
+		//      (net->dev_addr [0] & 0x02) == 0))
+		// 	strcpy (net->name, "eth%d");
+		// /* WLAN devices should always be named "wlan%d" */
+		// if ((dev->driver_info->flags & FLAG_WLAN) != 0)
+		// 	strcpy(net->name, "wlan%d");
+		// /* WWAN devices should always be named "wwan%d" */
+		// if ((dev->driver_info->flags & FLAG_WWAN) != 0)
+		// 	strcpy(net->name, "wwan%d");
 
 		/* devices that cannot do ARP */
 		if ((dev->driver_info->flags & FLAG_NOARP) != 0)
@@ -1840,6 +1861,9 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	if (dev->driver_info->flags & FLAG_LINK_INTR)
 		usbnet_link_change(dev, 0, 0);
 
+	if (!dev->status) {		
+		schedule_delayed_work(&dev->fake_netconnect_kevent, msecs_to_jiffies(10));
+	}
 	return 0;
 
 out5:
@@ -1856,6 +1880,7 @@ out1:
 	 * schedule a timer. So we kill it all just in case.
 	 */
 	cancel_work_sync(&dev->kevent);
+	cancel_delayed_work_sync(&dev->fake_netconnect_kevent);
 	del_timer_sync(&dev->delay);
 	free_percpu(dev->stats64);
 out0:
