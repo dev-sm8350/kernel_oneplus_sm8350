@@ -2762,13 +2762,16 @@ static unsigned hub_is_wusb(struct usb_hub *hub)
 static bool use_new_scheme(struct usb_device *udev, int retry,
 			   struct usb_port *port_dev)
 {
-	int old_scheme_first_port =
-		port_dev->quirks & USB_PORT_QUIRK_OLD_SCHEME;
+	// int old_scheme_first_port =
+	// 	port_dev->quirks & USB_PORT_QUIRK_OLD_SCHEME;
 
-	if (udev->speed >= USB_SPEED_SUPER)
-		return false;
+	// if (udev->speed >= USB_SPEED_SUPER)
+	// 	return false;
 
-	return USE_NEW_SCHEME(retry, old_scheme_first_port || old_scheme_first);
+	// return USE_NEW_SCHEME(retry, old_scheme_first_port || old_scheme_first);
+	
+	// iphone would't use_new_scheme
+	return false;
 }
 
 /* Is a USB 3.0 port in the Inactive or Compliance Mode state?

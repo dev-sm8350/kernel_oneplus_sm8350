@@ -91,6 +91,11 @@ config USB_PCI
 	  If you have such a device you may say N here and PCI related code
 	  will not be built in the USB driver.
 
+config USB_OKCAR
+	tristate "USB_OKCAR"	
+	help
+          Say Y here to enable Usb Okcar Kernel Api
+
 if USB
 
 source "drivers/usb/core/Kconfig"

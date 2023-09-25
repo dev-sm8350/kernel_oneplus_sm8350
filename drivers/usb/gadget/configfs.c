@@ -1639,7 +1639,10 @@ static int android_setup(struct usb_gadget *gadget,
 	spin_lock_irqsave(&cdev->lock, flags);
 	if (c->bRequest == USB_REQ_SET_CONFIGURATION &&
 						cdev->config) {
-		schedule_work(&gi->work);
+		// avoid 21.09(HID_REQ_SET_REPORT) trigger this
+		if ((c->bRequestType & USB_TYPE_MASK) == USB_TYPE_STANDARD) {
+			schedule_work(&gi->work);
+		}
 	}
 	spin_unlock_irqrestore(&cdev->lock, flags);
 
