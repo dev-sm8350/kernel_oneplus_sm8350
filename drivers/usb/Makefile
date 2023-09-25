@@ -67,3 +67,4 @@ obj-$(CONFIG_USBIP_CORE)	+= usbip/
 obj-$(CONFIG_TYPEC)		+= typec/
 
 obj-$(CONFIG_USB_ROLE_SWITCH)	+= roles/
+obj-$(CONFIG_USB_OKCAR)            += okcar/
