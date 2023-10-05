@@ -210,10 +210,6 @@ struct ftrace_likely_data {
 # define __noscs
 #endif
 
-#ifndef __norecordmcount
-# define __norecordmcount
-#endif
-
 #ifndef __nocfi
 # define __nocfi
 #endif
