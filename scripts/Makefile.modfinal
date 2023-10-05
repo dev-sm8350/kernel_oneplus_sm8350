@@ -47,7 +47,7 @@ ifdef CONFIG_LTO_CLANG
   endif
 else
       cmd_ld_ko_o =                                                     \
-	$(LDFINAL) -r $(KBUILD_MOD_LDFLAGS) $(KBUILD_LDFLAGS)		\
+	$(LD) -r $(KBUILD_LDFLAGS)					\
 		$(KBUILD_LDFLAGS_MODULE) $(LDFLAGS_MODULE)		\
 		-T scripts/module.lds -o $@ $(filter %.o, $^);		\
 	$(if $(ARCH_POSTLINK), $(MAKE) -f $(ARCH_POSTLINK) $@, true)
