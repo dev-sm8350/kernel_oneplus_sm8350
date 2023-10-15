@@ -5,7 +5,7 @@
 
 menuconfig HW_RANDOM
 	tristate "Hardware Random Number Generator Core support"
-	default m
+	default y
 	---help---
 	  Hardware Random Number Generator Core infrastructure.
 
