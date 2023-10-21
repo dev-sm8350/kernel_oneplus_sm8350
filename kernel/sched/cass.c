@@ -91,7 +91,7 @@ done:
 	return res > 0;
 }
 
-static int cass_best_cpu(struct task_struct *p, int prev_cpu, bool sync)
+int cass_best_cpu(struct task_struct *p, int prev_cpu, bool sync)
 {
 	/* Initialize @best such that @best always has a valid CPU at the end */
 	struct cass_cpu_cand cands[2], *best = cands, *curr;
@@ -178,6 +178,7 @@ static int cass_best_cpu(struct task_struct *p, int prev_cpu, bool sync)
 
 	return best->cpu;
 }
+EXPORT_SYMBOL(cass_best_cpu);
 
 static int cass_select_task_rq_fair(struct task_struct *p, int prev_cpu,
 				    int sd_flag, int wake_flags, int sibling_count_hint)
