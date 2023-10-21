@@ -137,7 +137,7 @@ unsigned int sysctl_walt_cpu_high_irqload = 95;
 static unsigned int walt_cpu_high_irqload;
 
 unsigned int sysctl_sched_walt_rotate_big_tasks;
-unsigned int walt_rotation_enabled;
+unsigned int walt_rotation_enabled = 1;
 
 __read_mostly unsigned int sysctl_sched_asym_cap_sibling_freq_match_pct = 100;
 __read_mostly unsigned int sysctl_sched_asym_cap_sibling_freq_match_en;
