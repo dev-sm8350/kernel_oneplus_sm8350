@@ -3277,7 +3277,13 @@ static int dwc3_gadget_ep_cleanup_completed_request(struct dwc3_ep *dep,
 	 * processed by the core. Hence do not reclaim it until
 	 * it is processed by the core.
 	 */
-	if (req->trb->ctrl & DWC3_TRB_CTRL_HWO) {
+	/*
+	 * If sg transfer are in progress, avoid checking
+	 * HWO bit here as these will get cleared during
+	 * ep reclaim.
+	 */
+	if ((req->trb->ctrl & DWC3_TRB_CTRL_HWO)
+		       && (req->num_queued_sgs == 0))	{
 		dbg_event(0xFF, "PEND TRB", dep->number);
 		return 1;
 	}
@@ -4545,7 +4551,7 @@ int dwc3_gadget_resume(struct dwc3 *dwc)
 {
 	int			ret;
 
-	if (!dwc->gadget_driver || !dwc->softconnect)
+	if (!dwc->gadget_driver)
 		return 0;
 
 	ret = __dwc3_gadget_start(dwc);

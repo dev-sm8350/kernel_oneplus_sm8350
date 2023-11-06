@@ -1174,7 +1174,6 @@ cont:
 		err = -EINVAL;
 		goto free_card;
 	}
-done:
 #if defined(CONFIG_SDC_QTI)
 	card->clk_scaling_highest = mmc_sd_get_max_clock(card);
 	card->clk_scaling_lowest = host->f_min;
