@@ -2161,6 +2161,11 @@ static int wcd938x_event_notify(struct notifier_block *block,
 						     NULL);
 		wcd938x->mbhc->wcd_mbhc.deinit_in_progress = true;
 		mbhc = &wcd938x->mbhc->wcd_mbhc;
+
+                if(mbhc->mbhc_cfg)
+                        wcd938x->usbc_hs_status = get_usbc_hs_status(component,
+                                                        mbhc->mbhc_cfg);
+
 		#ifdef OPLUS_ARCH_EXTENDS
 		mbhc->plug_before_ssr = mbhc->current_plug;
 		pr_info("%s: mbhc->plug_before_ssr=%d\n", __func__, mbhc->plug_before_ssr);
@@ -2188,7 +2193,8 @@ static int wcd938x_event_notify(struct notifier_block *block,
 			dev_err(component->dev, "%s: mbhc initialization failed\n",
 				__func__);
 		} else {
-			wcd938x_mbhc_hs_detect(component, mbhc->mbhc_cfg);
+			if(mbhc->mbhc_cfg)
+				wcd938x_mbhc_hs_detect(component, mbhc->mbhc_cfg);
 		}
 		wcd938x->mbhc->wcd_mbhc.deinit_in_progress = false;
 		wcd938x->dev_up = true;
