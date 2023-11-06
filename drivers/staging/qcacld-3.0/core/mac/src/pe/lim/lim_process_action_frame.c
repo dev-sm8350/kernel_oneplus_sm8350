@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -244,10 +244,7 @@ static void __lim_process_operating_mode_action_frame(struct mac_context *mac_ct
 	uint32_t status;
 	tpDphHashNode sta_ptr;
 	uint16_t aid;
-	uint8_t oper_mode;
-	uint8_t cb_mode;
 	uint8_t ch_bw = 0;
-	uint8_t skip_opmode_update = false;
 
 	mac_hdr = WMA_GET_RX_MAC_HEADER(rx_pkt_info);
 	body_ptr = WMA_GET_RX_MPDU_DATA(rx_pkt_info);
@@ -287,87 +284,13 @@ static void __lim_process_operating_mode_action_frame(struct mac_context *mac_ct
 		goto end;
 	}
 
-	if (wlan_reg_is_24ghz_ch_freq(session->curr_op_freq))
-		cb_mode = mac_ctx->roam.configParam.channelBondingMode24GHz;
-	else
-		cb_mode = mac_ctx->roam.configParam.channelBondingMode5GHz;
-	/*
-	 * Do not update the channel bonding mode if channel bonding
-	 * mode is disabled in INI.
-	 */
-	if (WNI_CFG_CHANNEL_BONDING_MODE_DISABLE == cb_mode) {
-		pe_debug("channel bonding disabled");
-		goto update_nss;
-	}
+	lim_update_nss(mac_ctx, sta_ptr,
+		       operating_mode_frm->OperatingMode.rxNSS,
+		       session);
 
-	if (sta_ptr->htSupportedChannelWidthSet) {
-		if (WNI_CFG_VHT_CHANNEL_WIDTH_80MHZ <
-				sta_ptr->vhtSupportedChannelWidthSet)
-			oper_mode = eHT_CHANNEL_WIDTH_160MHZ;
-		else
-			oper_mode = sta_ptr->vhtSupportedChannelWidthSet + 1;
-	} else {
-		oper_mode = eHT_CHANNEL_WIDTH_20MHZ;
-	}
-
-	if ((oper_mode == eHT_CHANNEL_WIDTH_80MHZ) &&
-			(operating_mode_frm->OperatingMode.chanWidth >
-				eHT_CHANNEL_WIDTH_80MHZ))
-		skip_opmode_update = true;
-
-	if (!skip_opmode_update && (oper_mode !=
-		operating_mode_frm->OperatingMode.chanWidth)) {
-		uint32_t fw_vht_ch_wd = wma_get_vht_ch_width();
-
-		pe_debug("received Chanwidth: %d",
-			 operating_mode_frm->OperatingMode.chanWidth);
-
-		pe_debug(" MAC: %0x:%0x:%0x:%0x:%0x:%0x",
-			mac_hdr->sa[0], mac_hdr->sa[1], mac_hdr->sa[2],
-			mac_hdr->sa[3], mac_hdr->sa[4], mac_hdr->sa[5]);
-
-		if (operating_mode_frm->OperatingMode.chanWidth >=
-				eHT_CHANNEL_WIDTH_160MHZ
-				&& (fw_vht_ch_wd >= eHT_CHANNEL_WIDTH_160MHZ)) {
-			sta_ptr->vhtSupportedChannelWidthSet =
-				WNI_CFG_VHT_CHANNEL_WIDTH_160MHZ;
-			sta_ptr->htSupportedChannelWidthSet =
-				eHT_CHANNEL_WIDTH_40MHZ;
-			ch_bw = eHT_CHANNEL_WIDTH_160MHZ;
-		} else if (operating_mode_frm->OperatingMode.chanWidth >=
-				eHT_CHANNEL_WIDTH_80MHZ) {
-			sta_ptr->vhtSupportedChannelWidthSet =
-				WNI_CFG_VHT_CHANNEL_WIDTH_80MHZ;
-			sta_ptr->htSupportedChannelWidthSet =
-				eHT_CHANNEL_WIDTH_40MHZ;
-			ch_bw = eHT_CHANNEL_WIDTH_80MHZ;
-		} else if (operating_mode_frm->OperatingMode.chanWidth ==
-				eHT_CHANNEL_WIDTH_40MHZ) {
-			sta_ptr->vhtSupportedChannelWidthSet =
-				WNI_CFG_VHT_CHANNEL_WIDTH_20_40MHZ;
-			sta_ptr->htSupportedChannelWidthSet =
-				eHT_CHANNEL_WIDTH_40MHZ;
-			ch_bw = eHT_CHANNEL_WIDTH_40MHZ;
-		} else if (operating_mode_frm->OperatingMode.chanWidth ==
-				eHT_CHANNEL_WIDTH_20MHZ) {
-			sta_ptr->vhtSupportedChannelWidthSet =
-				WNI_CFG_VHT_CHANNEL_WIDTH_20_40MHZ;
-			sta_ptr->htSupportedChannelWidthSet =
-				eHT_CHANNEL_WIDTH_20MHZ;
-			ch_bw = eHT_CHANNEL_WIDTH_20MHZ;
-		}
-		lim_check_vht_op_mode_change(mac_ctx, session, ch_bw,
-					     mac_hdr->sa);
-	}
-
-update_nss:
-	if (sta_ptr->vhtSupportedRxNss !=
-			(operating_mode_frm->OperatingMode.rxNSS + 1)) {
-		sta_ptr->vhtSupportedRxNss =
-			operating_mode_frm->OperatingMode.rxNSS + 1;
-		lim_set_nss_change(mac_ctx, session, sta_ptr->vhtSupportedRxNss,
-			mac_hdr->sa);
-	}
+	lim_update_channel_width(mac_ctx, sta_ptr, session,
+				 operating_mode_frm->OperatingMode.chanWidth,
+				 &ch_bw);
 
 end:
 	qdf_mem_free(operating_mode_frm);
@@ -1606,7 +1529,6 @@ void lim_process_action_frame(struct mac_context *mac_ctx,
 	int8_t rssi;
 	uint32_t frame_len = WMA_GET_RX_PAYLOAD_LEN(rx_pkt_info);
 	tpSirMacVendorSpecificFrameHdr vendor_specific;
-	uint8_t oui[] = { 0x00, 0x00, 0xf0 };
 	uint8_t dpp_oui[] = { 0x50, 0x6F, 0x9A, 0x1A };
 	tpSirMacVendorSpecificPublicActionFrameHdr pub_action;
 
@@ -1617,8 +1539,8 @@ void lim_process_action_frame(struct mac_context *mac_ctx,
 	}
 
 #ifdef WLAN_FEATURE_11W
-	if (lim_is_robust_mgmt_action_frame(action_hdr->category) &&
-	   lim_drop_unprotected_action_frame(mac_ctx, session,
+	if (wlan_mgmt_is_rmf_mgmt_action_frame(action_hdr->category) &&
+	    lim_drop_unprotected_action_frame(mac_ctx, session,
 			mac_hdr_11w, action_hdr->category))
 		return;
 #endif
@@ -1818,6 +1740,7 @@ void lim_process_action_frame(struct mac_context *mac_ctx,
 		break;
 
 	case SIR_MAC_ACTION_VENDOR_SPECIFIC_CATEGORY:
+	case SIR_MAC_PROT_ACTION_VENDOR_SPECIFIC_CATEGORY:
 		vendor_specific = (tpSirMacVendorSpecificFrameHdr) action_hdr;
 		mac_hdr = NULL;
 
@@ -1829,12 +1752,9 @@ void lim_process_action_frame(struct mac_context *mac_ctx,
 			return;
 		}
 
-		/* Check if it is a vendor specific action frame. */
-		if (LIM_IS_STA_ROLE(session) &&
-		    (!qdf_mem_cmp(session->self_mac_addr,
-					&mac_hdr->da[0], sizeof(tSirMacAddr)))
-		    && IS_WES_MODE_ENABLED(mac_ctx)
-		    && !qdf_mem_cmp(vendor_specific->Oui, oui, 3)) {
+		/* Forward all vendor specific action frames. */
+		if (!qdf_mem_cmp(session->self_mac_addr,
+				 &mac_hdr->da[0], sizeof(tSirMacAddr))) {
 			pe_debug("Rcvd Vendor specific frame OUI: %x %x %x",
 				vendor_specific->Oui[0],
 				vendor_specific->Oui[1],
@@ -1854,16 +1774,8 @@ void lim_process_action_frame(struct mac_context *mac_ctx,
 					WMA_GET_RX_RSSI_NORMALIZED(
 					rx_pkt_info), RXMGMT_FLAG_NONE);
 		} else {
-			pe_debug("Dropping the vendor specific action frame"
-					"beacause of (WES Mode not enabled "
-					"(WESMODE: %d) or OUI mismatch "
-					"(%02x %02x %02x) or not received with"
-					"SelfSta address) system role: %d",
-				IS_WES_MODE_ENABLED(mac_ctx),
-				vendor_specific->Oui[0],
-				vendor_specific->Oui[1],
-				vendor_specific->Oui[2],
-				GET_LIM_SYSTEM_ROLE(session));
+			pe_debug("Dropping the vendor specific action frame SelfSta address system role: %d",
+				 GET_LIM_SYSTEM_ROLE(session));
 		}
 	break;
 	case ACTION_CATEGORY_PUBLIC:
@@ -1896,11 +1808,15 @@ void lim_process_action_frame(struct mac_context *mac_ctx,
 			/* send the frame to supplicant */
 			/* fallthrough */
 		case SIR_MAC_ACTION_VENDOR_SPECIFIC_CATEGORY:
+		case SIR_MAC_PROT_ACTION_VENDOR_SPECIFIC_CATEGORY:
 		case SIR_MAC_ACTION_2040_BSS_COEXISTENCE:
 		case SIR_MAC_ACTION_GAS_INITIAL_REQUEST:
 		case SIR_MAC_ACTION_GAS_INITIAL_RESPONSE:
 		case SIR_MAC_ACTION_GAS_COMEBACK_REQUEST:
 		case SIR_MAC_ACTION_GAS_COMEBACK_RESPONSE:
+		default:
+			pe_debug("Public action frame: %d",
+				 action_hdr->actionID);
 			/*
 			 * Forward to the SME to HDD to wpa_supplicant
 			 * type is ACTION
@@ -1913,10 +1829,6 @@ void lim_process_action_frame(struct mac_context *mac_ctx,
 					WMA_GET_RX_FREQ(rx_pkt_info), session,
 					WMA_GET_RX_RSSI_NORMALIZED(
 					rx_pkt_info), RXMGMT_FLAG_NONE);
-			break;
-		default:
-			pe_debug("Unhandled public action frame: %d",
-				 action_hdr->actionID);
 			break;
 		}
 		break;

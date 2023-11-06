@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -637,23 +637,19 @@ QDF_STATUS csr_open(struct mac_context *mac)
 	return status;
 }
 
-QDF_STATUS csr_init_chan_list(struct mac_context *mac, uint8_t *alpha2)
+QDF_STATUS csr_init_chan_list(struct mac_context *mac)
 {
 	QDF_STATUS status;
+	uint8_t reg_cc[REG_ALPHA2_LEN + 1];
 
-	mac->scan.countryCodeDefault[0] = alpha2[0];
-	mac->scan.countryCodeDefault[1] = alpha2[1];
-	mac->scan.countryCodeDefault[2] = alpha2[2];
-
-	sme_debug("init time country code %.2s", mac->scan.countryCodeDefault);
+	wlan_reg_read_current_country(mac->psoc, reg_cc);
+	sme_debug("init time country code %.2s", reg_cc);
 
 	mac->scan.domainIdDefault = 0;
 	mac->scan.domainIdCurrent = 0;
 
-	qdf_mem_copy(mac->scan.countryCodeCurrent,
-		     mac->scan.countryCodeDefault, REG_ALPHA2_LEN + 1);
 	qdf_mem_copy(mac->scan.countryCodeElected,
-		     mac->scan.countryCodeDefault, REG_ALPHA2_LEN + 1);
+		     reg_cc, REG_ALPHA2_LEN + 1);
 	status = csr_get_channel_and_power_list(mac);
 
 	return status;
@@ -665,8 +661,6 @@ QDF_STATUS csr_set_channels(struct mac_context *mac,
 	QDF_STATUS status = QDF_STATUS_SUCCESS;
 	uint8_t index = 0;
 
-	qdf_mem_copy(pParam->Csr11dinfo.countryCode,
-		     mac->scan.countryCodeCurrent, REG_ALPHA2_LEN + 1);
 	for (index = 0; index < mac->scan.base_channels.numChannels;
 	     index++) {
 		pParam->Csr11dinfo.Channels.channel_freq_list[index] =
@@ -1839,6 +1833,13 @@ csr_check_band_freq_match(enum band_info band, uint32_t freq)
 	if (band == BAND_5G && WLAN_REG_IS_5GHZ_CH_FREQ(freq))
 		return true;
 
+	/*
+	 * Not adding the band check for now as band_info will be soon
+	 * replaced with reg_wifi_band enum
+	 */
+	if (WLAN_REG_IS_6GHZ_CHAN_FREQ(freq))
+		return true;
+
 	return false;
 }
 
@@ -2789,8 +2790,7 @@ QDF_STATUS csr_apply_channel_and_power_list(struct mac_context *mac)
 	csr_save_channel_power_for_band(mac, false);
 	csr_save_channel_power_for_band(mac, true);
 	csr_apply_channel_power_info_to_fw(mac,
-					   &mac->scan.base_channels,
-					   mac->scan.countryCodeCurrent);
+					   &mac->scan.base_channels);
 
 	csr_init_operating_classes(mac);
 	return status;
@@ -2822,17 +2822,6 @@ static QDF_STATUS csr_init11d_info(struct mac_context *mac, tCsr11dinfo *ps11din
 	}
 	/* legacy maintenance */
 
-	qdf_mem_copy(mac->scan.countryCodeDefault, ps11dinfo->countryCode,
-		     REG_ALPHA2_LEN + 1);
-
-	/* Tush: at csropen get this initialized with default,
-	 * during csr reset if this already set with some value
-	 * no need initilaize with default again
-	 */
-	if (0 == mac->scan.countryCodeCurrent[0]) {
-		qdf_mem_copy(mac->scan.countryCodeCurrent,
-			     ps11dinfo->countryCode, REG_ALPHA2_LEN + 1);
-	}
 	/* need to add the max power channel list */
 	pChanInfo =
 		qdf_mem_malloc(sizeof(tSirMacChanInfo) *
@@ -2874,9 +2863,7 @@ static QDF_STATUS csr_init11d_info(struct mac_context *mac, tCsr11dinfo *ps11din
 			 */
 			csr_apply_channel_power_info_to_fw(mac,
 							   &mac->scan.
-							   base_channels,
-							   mac->scan.
-							   countryCodeCurrent);
+							   base_channels);
 		}
 	}
 	return status;
@@ -8711,35 +8698,60 @@ bool is_disconnect_pending(struct mac_context *pmac, uint8_t vdev_id)
 	return disconnect_cmd_exist;
 }
 
-bool is_disconnect_pending_on_other_vdev(struct mac_context *pmac,
-					 uint8_t vdev_id)
+bool is_any_other_vdev_connecting_disconnecting(struct mac_context *pmac,
+						uint8_t vdev_id)
 {
 	tListElem *entry = NULL;
 	tListElem *next_entry = NULL;
 	tSmeCmd *command = NULL;
-	bool disconnect_cmd_exist = false;
+	bool is_pending_cmd = false;
+	enum QDF_OPMODE opmode;
 
 	entry = csr_nonscan_pending_ll_peek_head(pmac, LL_ACCESS_NOLOCK);
 	while (entry) {
 		next_entry = csr_nonscan_pending_ll_next(pmac, entry,
 							 LL_ACCESS_NOLOCK);
 		command = GET_BASE_ADDR(entry, tSmeCmd, Link);
-		/*
-		 * check if any other vdev NB disconnect or SB disconnect
-		 * (eSmeCommandWmStatusChange) is pending
-		 */
-		if (command && (CSR_IS_DISCONNECT_COMMAND(command) ||
-		    command->command == eSmeCommandWmStatusChange) &&
-		    command->vdev_id != vdev_id) {
-			sme_debug("disconnect is pending on vdev:%d, cmd:%d",
-				  command->vdev_id, command->command);
-			disconnect_cmd_exist = true;
-			break;
+		if (!command) {
+			entry = next_entry;
+			continue;
 		}
+
+		opmode = wlan_get_opmode_from_vdev_id(pmac->pdev,
+						      command->vdev_id);
+
+		if (opmode == QDF_STA_MODE || opmode == QDF_P2P_CLIENT_MODE) {
+			/*
+			 * check if any other vdev NB disconnect or SB
+			 * disconnect (eSmeCommandWmStatusChange) is pending
+			 */
+			if ((CSR_IS_DISCONNECT_COMMAND(command) ||
+			    command->command == eSmeCommandWmStatusChange) &&
+			    command->vdev_id != vdev_id) {
+				sme_debug("disconnect is pending on vdev:%d, cmd:%d",
+					  command->vdev_id, command->command);
+				is_pending_cmd = true;
+				break;
+			}
+		}
+
+		if (opmode == QDF_SAP_MODE || opmode == QDF_P2P_GO_MODE) {
+			/* Check if START/STOP AP OP is in progress */
+			if ((command->command == eSmeCommandRoam &&
+			   (command->u.roamCmd.roamReason == eCsrStopBss ||
+			    command->u.roamCmd.roamReason == eCsrHddIssued))) {
+				sme_debug("vdev ops pending on vdev_id:%d, cmd:%d, reason:%d",
+					  command->vdev_id, command->command,
+					  command->u.roamCmd.roamReason);
+				is_pending_cmd = true;
+				break;
+			}
+		}
+
 		entry = next_entry;
 	}
 
-	return disconnect_cmd_exist;
+	return is_pending_cmd;
 }
 
 #if defined(WLAN_SAE_SINGLE_PMK) && defined(WLAN_FEATURE_ROAM_OFFLOAD)
@@ -8861,7 +8873,7 @@ static void csr_roam_join_rsp_processor(struct mac_context *mac,
 	struct csr_roam_connectedinfo *prev_connect_info;
 	struct wlan_crypto_pmksa *pmksa;
 	uint32_t len = 0, roamId = 0, reason_code = 0;
-	bool is_dis_pending, is_dis_pending_on_other_vdev;
+	bool is_dis_pending, is_vdev_ops_pending_on_other_vdev;
 	bool use_same_bss = false;
 	uint8_t max_retry_count = 1;
 	bool retry_same_bss = false;
@@ -8965,8 +8977,8 @@ static void csr_roam_join_rsp_processor(struct mac_context *mac,
 		 reason_code);
 
 	is_dis_pending = is_disconnect_pending(mac, session_ptr->sessionId);
-	is_dis_pending_on_other_vdev =
-		is_disconnect_pending_on_other_vdev(mac,
+	is_vdev_ops_pending_on_other_vdev =
+		is_any_other_vdev_connecting_disconnecting(mac,
 						    session_ptr->sessionId);
 	is_time_allowed =
 		csr_is_time_allowed_for_connect_attempt(pCommand,
@@ -8976,7 +8988,7 @@ static void csr_roam_join_rsp_processor(struct mac_context *mac,
 	 * if userspace has issued disconnection or we have reached mac tries or
 	 * max time, driver should not continue for next connection.
 	 */
-	if (is_dis_pending || is_dis_pending_on_other_vdev || !is_time_allowed ||
+	if (is_dis_pending || is_vdev_ops_pending_on_other_vdev || !is_time_allowed ||
 	    session_ptr->join_bssid_count >= CSR_MAX_BSSID_COUNT)
 		attempt_next_bss = false;
 
@@ -9092,8 +9104,8 @@ static void csr_roam_join_rsp_processor(struct mac_context *mac,
 	if (is_dis_pending)
 		sme_err("disconnect is pending, complete roam");
 
-	if (is_dis_pending_on_other_vdev)
-		sme_err("disconnect is pending on other vdev, complete roam");
+	if (is_vdev_ops_pending_on_other_vdev)
+		sme_err("vdev ops is pending on other vdev, complete roam");
 
 	if (!is_time_allowed)
 		sme_err("time can exceed the active timeout for connection attempt");
@@ -14926,7 +14938,7 @@ csr_update_sae_single_pmk_ap_cap(struct mac_context *mac,
 }
 #endif
 
-static void csr_get_basic_rates(tSirMacRateSet *b_rates, uint32_t chan_freq)
+void csr_get_basic_rates(tSirMacRateSet *b_rates, uint32_t chan_freq)
 {
 	/*
 	 * Some IOT APs don't send supported rates in
@@ -15018,6 +15030,7 @@ QDF_STATUS csr_send_join_req_msg(struct mac_context *mac, uint32_t sessionId,
 	uint8_t programmed_country[REG_ALPHA2_LEN + 1];
 	enum reg_6g_ap_type power_type_6g;
 	bool ctry_code_match;
+	uint8_t reg_cc[REG_ALPHA2_LEN + 1];
 
 	if (!pSession) {
 		sme_err("session %d not found", sessionId);
@@ -15104,8 +15117,9 @@ QDF_STATUS csr_send_join_req_msg(struct mac_context *mac, uint32_t sessionId,
 		qdf_mem_copy(&csr_join_req->self_mac_addr,
 			     &pSession->self_mac_addr,
 			     sizeof(tSirMacAddr));
+		wlan_reg_read_current_country(mac->psoc, reg_cc);
 		sme_nofl_info("vdev-%d: Connecting to %.*s " QDF_MAC_ADDR_FMT
-			      " rssi: %d freq: %d akm %d cipher: uc %d mc %d, CC: %c%c",
+			      " rssi: %d freq: %d akm %d cipher: uc %d mc %d, CC: %s",
 			      sessionId, csr_join_req->ssId.length,
 			      csr_join_req->ssId.ssId,
 			      QDF_MAC_ADDR_REF(pBssDescription->bssId),
@@ -15113,8 +15127,7 @@ QDF_STATUS csr_send_join_req_msg(struct mac_context *mac, uint32_t sessionId,
 			      pProfile->negotiatedAuthType,
 			      pProfile->negotiatedUCEncryptionType,
 			      pProfile->negotiatedMCEncryptionType,
-			      mac->scan.countryCodeCurrent[0],
-			      mac->scan.countryCodeCurrent[1]);
+			      reg_cc);
 		wlan_rec_conn_info(sessionId, DEBUG_CONN_CONNECTING,
 				   pBssDescription->bssId,
 				   pProfile->negotiatedAuthType,
@@ -20279,10 +20292,10 @@ static void csr_init_operating_classes(struct mac_context *mac)
 	uint8_t swap = 0;
 	uint8_t numClasses = 0;
 	uint8_t opClasses[REG_MAX_SUPP_OPER_CLASSES] = {0,};
+	uint8_t reg_cc[REG_ALPHA2_LEN + 1];
 
-	sme_debug("Current Country = %c%c",
-		  mac->scan.countryCodeCurrent[0],
-		  mac->scan.countryCodeCurrent[1]);
+	wlan_reg_read_current_country(mac->psoc, reg_cc);
+	sme_debug("Current Country = %s", reg_cc);
 
 	csr_update_op_class_array(mac, opClasses,
 				  &mac->scan.base_channels, "20MHz", &i);
@@ -21017,17 +21030,21 @@ static bool csr_is_sae_single_pmk_vsie_ap(struct bss_description *bss_des)
  * @mac_ctx: mac context
  * @session: Session
  * @vdev_id: session id
+ * @psk_pmk: pmk of roamed AP
+ * @pmk_len: pmk length
  *
  * Return: True if same pmk IE is present
  */
 static void
 csr_check_and_set_sae_single_pmk_cap(struct mac_context *mac_ctx,
 				     struct csr_roam_session *session,
-				     uint8_t vdev_id)
+				     uint8_t vdev_id, uint8_t *psk_pmk,
+				     uint8_t pmk_len)
 {
 	struct wlan_objmgr_vdev *vdev;
 	struct mlme_pmk_info *pmk_info;
 	tPmkidCacheInfo *pmkid_cache;
+	struct wlan_crypto_pmksa *roam_sync_pmksa;
 	int32_t keymgmt;
 	bool val, lookup_success;
 
@@ -21052,9 +21069,28 @@ csr_check_and_set_sae_single_pmk_cap(struct mac_context *mac_ctx,
 		if (!val)
 			goto end;
 
-		wlan_crypto_set_sae_single_pmk_bss_cap(vdev,
-		   (struct qdf_mac_addr *)session->pConnectBssDesc->bssId,
-		   true);
+		roam_sync_pmksa = qdf_mem_malloc(sizeof(*roam_sync_pmksa));
+		if (roam_sync_pmksa) {
+			qdf_copy_macaddr(&roam_sync_pmksa->bssid,
+					 (struct qdf_mac_addr *)
+					 &session->pConnectBssDesc->bssId);
+			roam_sync_pmksa->single_pmk_supported = true;
+			roam_sync_pmksa->pmk_len = pmk_len;
+			qdf_mem_copy(roam_sync_pmksa->pmk, psk_pmk,
+				     roam_sync_pmksa->pmk_len);
+			sme_debug("SPMK received for " QDF_MAC_ADDR_FMT
+				  "pmk_len:%d", QDF_MAC_ADDR_REF(
+				  roam_sync_pmksa->bssid.bytes),
+				  roam_sync_pmksa->pmk_len);
+			/* update single pmk info for roamed ap to pmk table */
+			wlan_crypto_set_sae_single_pmk_info(vdev,
+							    roam_sync_pmksa);
+
+			qdf_mem_zero(roam_sync_pmksa, sizeof(*roam_sync_pmksa));
+			qdf_mem_free(roam_sync_pmksa);
+		} else {
+			goto end;
+		}
 
 		pmkid_cache = qdf_mem_malloc(sizeof(*pmkid_cache));
 		if (!pmkid_cache)
@@ -21107,7 +21143,8 @@ end:
 static inline void
 csr_check_and_set_sae_single_pmk_cap(struct mac_context *mac_ctx,
 				     struct csr_roam_session *session,
-				     uint8_t vdev_id)
+				     uint8_t vdev_id, uint8_t *psk_pmk,
+				     uint8_t pmk_len)
 {
 }
 #endif
@@ -21250,10 +21287,19 @@ csr_process_roam_sync_callback(struct mac_context *mac_ctx,
 		 * the candidate was not successful.
 		 * Connection to the previous AP is still valid in this
 		 * case. So move to RSO_ENABLED state.
+		 *
+		 * Switch to RSO enabled state only if the current state is
+		 * WLAN_ROAMING_IN_PROG or WLAN_ROAM_SYNCH_IN_PROG.
+		 * This API can be called in internal roam aborts also when
+		 * RSO state is deinit and cause RSO start to be sent in
+		 * disconnected state.
 		 */
-		csr_post_roam_state_change(mac_ctx, session_id,
-					   WLAN_ROAM_RSO_ENABLED,
-					   REASON_ROAM_ABORT);
+		if (MLME_IS_ROAMING_IN_PROG(mac_ctx->psoc, session_id) ||
+		    MLME_IS_ROAM_SYNCH_IN_PROGRESS(mac_ctx->psoc, session_id))
+			csr_post_roam_state_change(mac_ctx, session_id,
+						   WLAN_ROAM_RSO_ENABLED,
+						   REASON_ROAM_ABORT);
+
 		csr_roam_roaming_offload_timer_action(mac_ctx,
 				0, session_id, ROAMING_OFFLOAD_TIMER_STOP);
 		csr_roam_call_callback(mac_ctx, session_id, NULL, 0,
@@ -21330,8 +21376,12 @@ csr_process_roam_sync_callback(struct mac_context *mac_ctx,
 			mac_ctx->psoc);
 		mac_ctx->sme.set_connection_info_cb(false);
 
-		csr_check_and_set_sae_single_pmk_cap(mac_ctx, session,
-						     session_id);
+		if (roam_synch_data->pmk_len)
+			csr_check_and_set_sae_single_pmk_cap(
+						mac_ctx, session,
+						session_id,
+						roam_synch_data->pmk,
+						roam_synch_data->pmk_len);
 
 		if (ucfg_pkt_capture_get_pktcap_mode(mac_ctx->psoc))
 			ucfg_pkt_capture_record_channel(vdev);

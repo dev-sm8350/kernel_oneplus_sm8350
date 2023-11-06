@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -36,6 +36,7 @@
 #include "wlan_mlme_ucfg_api.h"
 #include "csr_neighbor_roam.h"
 #include "wlan_scan_api.h"
+#include <wlan_reg_ucfg_api.h>
 
 /**
  * first_connection_pcl_table - table which provides PCL for the
@@ -733,6 +734,96 @@ policy_mgr_modify_pcl_based_on_indoor(struct wlan_objmgr_psoc *psoc,
 	return QDF_STATUS_SUCCESS;
 }
 
+/**
+ * policy_mgr_modify_sap_pcl_for_6G_channels() - filter out the
+ * 6GHz channels where SCC is not supported.
+ * @psoc: pointer to soc
+ * @pcl_list_org: channel list to filter out
+ * @weight_list_org: weight of channel list
+ * @pcl_len_org: length of channel list
+ *
+ * Return: QDF_STATUS
+ */
+static QDF_STATUS
+policy_mgr_modify_sap_pcl_for_6G_channels(struct wlan_objmgr_psoc *psoc,
+					  uint32_t *pcl_list_org,
+					  uint8_t *weight_list_org,
+					  uint32_t *pcl_len_org)
+{
+	struct policy_mgr_psoc_priv_obj *pm_ctx;
+	uint32_t pcl_list[NUM_CHANNELS];
+	uint8_t weight_list[NUM_CHANNELS];
+	uint32_t vdev_id = 0, pcl_len = 0, i;
+	struct wlan_objmgr_vdev *vdev;
+	qdf_freq_t sta_gc_freq = 0;
+	uint32_t ap_pwr_type_6g = 0;
+
+	pm_ctx = policy_mgr_get_context(psoc);
+	if (!pm_ctx) {
+		policy_mgr_err("Invalid Context");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	if (*pcl_len_org > NUM_CHANNELS) {
+		policy_mgr_err("Invalid PCL List Length %d", *pcl_len_org);
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	if (policy_mgr_mode_specific_connection_count(psoc,
+						      PM_STA_MODE, NULL)) {
+		sta_gc_freq =
+			policy_mgr_mode_specific_get_channel(psoc, PM_STA_MODE);
+		vdev_id = policy_mgr_mode_specific_vdev_id(psoc, PM_STA_MODE);
+	} else if (policy_mgr_mode_specific_connection_count(psoc,
+							     PM_P2P_CLIENT_MODE,
+							     NULL)) {
+		sta_gc_freq = policy_mgr_mode_specific_get_channel(
+						psoc, PM_P2P_CLIENT_MODE);
+		vdev_id = policy_mgr_mode_specific_vdev_id(psoc,
+							   PM_P2P_CLIENT_MODE);
+	}
+
+	if (!sta_gc_freq || !WLAN_REG_IS_6GHZ_CHAN_FREQ(sta_gc_freq))
+		return QDF_STATUS_SUCCESS;
+
+	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(psoc, vdev_id,
+						    WLAN_POLICY_MGR_ID);
+	if (!vdev) {
+		policy_mgr_err("vdev %d is not present", vdev_id);
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	/* If STA is present in 6GHz, STA+SAP SCC is allowed
+	 * only on PSC channels in VLP mode. Therefore, remove
+	 * all other 6GHz channels from the PCL list.
+	 *
+	 * VLP STA in PSC + SAP     - Allowed
+	 * VLP STA in non-PSC + SAP - Not allowed
+	 * non-VLP STA + SAP        - Not allowed
+	 */
+	ucfg_reg_get_cur_6g_ap_pwr_type(pm_ctx->pdev, &ap_pwr_type_6g);
+	policy_mgr_debug("STA power type : %d", ap_pwr_type_6g);
+	for (i = 0; i < *pcl_len_org; i++) {
+		if (WLAN_REG_IS_6GHZ_CHAN_FREQ(pcl_list_org[i])) {
+			if (ap_pwr_type_6g != REG_VERY_LOW_POWER_AP)
+				continue;
+			else if (!WLAN_REG_IS_6GHZ_PSC_CHAN_FREQ(pcl_list_org[i]))
+				continue;
+		}
+		pcl_list[pcl_len] = pcl_list_org[i];
+		weight_list[pcl_len++] = weight_list_org[i];
+	}
+
+	qdf_mem_zero(pcl_list_org, *pcl_len_org * sizeof(*pcl_list_org));
+	qdf_mem_zero(weight_list_org, *pcl_len_org * sizeof(*weight_list_org));
+	qdf_mem_copy(pcl_list_org, pcl_list, pcl_len * sizeof(*pcl_list_org));
+	qdf_mem_copy(weight_list_org, weight_list, pcl_len);
+	*pcl_len_org = pcl_len;
+
+	wlan_objmgr_vdev_release_ref(vdev, WLAN_POLICY_MGR_ID);
+	return QDF_STATUS_SUCCESS;
+}
+
 static QDF_STATUS policy_mgr_pcl_modification_for_sap(
 			struct wlan_objmgr_psoc *psoc,
 			uint32_t *pcl_channels, uint8_t *pcl_weight,
@@ -792,6 +883,14 @@ static QDF_STATUS policy_mgr_pcl_modification_for_sap(
 		return status;
 	}
 	indoor_modified_pcl = true;
+
+	status = policy_mgr_modify_sap_pcl_for_6G_channels(psoc,
+							   pcl_channels,
+							   pcl_weight, len);
+	if (QDF_IS_STATUS_ERROR(status)) {
+		policy_mgr_err("failed to modify pcl for 6G channels");
+		return status;
+	}
 
 	modified_final_pcl = true;
 	policy_mgr_debug(" %d %d %d %d %d",
@@ -1022,8 +1121,8 @@ QDF_STATUS policy_mgr_get_pcl(struct wlan_objmgr_psoc *psoc,
 	/* once the PCL enum is obtained find out the exact channel list with
 	 * help from sme_get_cfg_valid_channels
 	 */
-	status = policy_mgr_get_channel_list(psoc, pcl, pcl_channels, len, mode,
-					pcl_weight, weight_len);
+	status = policy_mgr_get_channel_list(psoc, pcl, mode, pcl_channels,
+					     pcl_weight, weight_len, len);
 	if (QDF_IS_STATUS_ERROR(status)) {
 		policy_mgr_err("failed to get channel list:%d", status);
 		return status;
@@ -1031,6 +1130,8 @@ QDF_STATUS policy_mgr_get_pcl(struct wlan_objmgr_psoc *psoc,
 
 	policy_mgr_dump_channel_list(*len, pcl_channels, pcl_weight);
 
+	policy_mgr_debug("PCL before modification");
+	policy_mgr_dump_channel_list(*len, pcl_channels, pcl_weight);
 	policy_mgr_mode_specific_modification_on_pcl(
 		psoc, pcl_channels, pcl_weight, len, mode);
 
@@ -1041,6 +1142,10 @@ QDF_STATUS policy_mgr_get_pcl(struct wlan_objmgr_psoc *psoc,
 		policy_mgr_err("failed to get modified pcl based on DNBS");
 		return status;
 	}
+
+	policy_mgr_debug("PCL after modification");
+	policy_mgr_dump_channel_list(*len, pcl_channels, pcl_weight);
+
 	return QDF_STATUS_SUCCESS;
 }
 
@@ -1729,58 +1834,128 @@ static enum policy_mgr_two_connection_mode
 	return index;
 }
 
+/*
+ * policy_mgr_check_and_get_third_connection_pcl_table_index_for_scc() -
+ * This function checks connection mode is in scc or not and returns
+ * index value based on mode and prvided index inputs.
+ *
+ * @scc_2g_1x1: index of scc_2g_1x1 for provided concurrency
+ * @scc_2g_2x2: index of scc_2g_2x2 for provided concurrency
+ * @scc_5g_1x1: index of scc_5g_1x1 for provided concurrency
+ * @scc_5g_2x2: index of scc_5g_2x2 for provided concurrency
+ *
+ * Return: policy_mgr_two_connection_mode index
+ */
 static enum policy_mgr_two_connection_mode
-		policy_mgr_get_third_connection_pcl_table_index_go_go(void)
+policy_mgr_check_and_get_third_connection_pcl_table_index_for_scc(
+			enum policy_mgr_two_connection_mode scc_2g_1x1,
+			enum policy_mgr_two_connection_mode scc_2g_2x2,
+			enum policy_mgr_two_connection_mode scc_5g_1x1,
+			enum policy_mgr_two_connection_mode scc_5g_2x2)
 {
 	enum policy_mgr_two_connection_mode index = PM_MAX_TWO_CONNECTION_MODE;
-	/* SCC */
+
 	if (pm_conc_connection_list[0].freq ==
-		pm_conc_connection_list[1].freq) {
+	    pm_conc_connection_list[1].freq) {
 		if (WLAN_REG_IS_24GHZ_CH_FREQ(
-			pm_conc_connection_list[0].freq)) {
+		    pm_conc_connection_list[0].freq)) {
 			if (POLICY_MGR_ONE_ONE ==
-				pm_conc_connection_list[0].chain_mask)
-				index = PM_P2P_GO_P2P_GO_SCC_24_1x1;
+					pm_conc_connection_list[0].chain_mask)
+				index = scc_2g_1x1;
 			else
-				index = PM_P2P_GO_P2P_GO_SCC_24_2x2;
+				index = scc_2g_2x2;
 		} else {
 			if (POLICY_MGR_ONE_ONE ==
 				pm_conc_connection_list[0].chain_mask)
-				index = PM_P2P_GO_P2P_GO_SCC_5_1x1;
+				index = scc_5g_1x1;
 			else
-				index = PM_P2P_GO_P2P_GO_SCC_5_2x2;
+				index = scc_5g_2x2;
 		}
-	/* MCC */
-	} else if (pm_conc_connection_list[0].mac ==
-		pm_conc_connection_list[1].mac) {
+	}
+	return index;
+}
+
+/*
+ * policy_mgr_check_and_get_third_connection_pcl_table_index_for_mcc() -
+ * This function checks connection mode is in mcc or not and returns
+ * index value based on mode and prvided index inputs.
+ *
+ * @mcc_2g_1x1: index of mcc_2g_1x1 for provided concurrency
+ * @mcc_2g_2x2: index of mcc_2g_2x2 for provided concurrency
+ * @mcc_5g_1x1: index of mcc_5g_1x1 for provided concurrency
+ * @mcc_5g_2x2: index of mcc_5g_2x2 for provided concurrency
+ * @mcc_24_5_1x1: index of mcc_24_5_1x1 for provided concurrency
+ * @mcc_24_5_2x2: index of mcc_24_5_2x2 for provided concurrency
+ *
+ * Return: policy_mgr_two_connection_mode index
+ */
+static enum policy_mgr_two_connection_mode
+policy_mgr_check_and_get_third_connection_pcl_table_index_for_mcc(
+			enum policy_mgr_two_connection_mode mcc_2g_1x1,
+			enum policy_mgr_two_connection_mode mcc_2g_2x2,
+			enum policy_mgr_two_connection_mode mcc_5g_1x1,
+			enum policy_mgr_two_connection_mode mcc_5g_2x2,
+			enum policy_mgr_two_connection_mode mcc_24_5_1x1,
+			enum policy_mgr_two_connection_mode mcc_24_5_2x2)
+{
+	enum policy_mgr_two_connection_mode index = PM_MAX_TWO_CONNECTION_MODE;
+
+	if (pm_conc_connection_list[0].mac == pm_conc_connection_list[1].mac) {
 		if ((WLAN_REG_IS_24GHZ_CH_FREQ(
-			pm_conc_connection_list[0].freq)) &&
-			(WLAN_REG_IS_24GHZ_CH_FREQ(
-			pm_conc_connection_list[1].freq))) {
+		    pm_conc_connection_list[0].freq)) &&
+		    (WLAN_REG_IS_24GHZ_CH_FREQ(
+		    pm_conc_connection_list[1].freq))) {
 			if (POLICY_MGR_ONE_ONE ==
-				pm_conc_connection_list[0].chain_mask)
-				index = PM_P2P_GO_P2P_GO_MCC_24_1x1;
+					pm_conc_connection_list[0].chain_mask)
+				index = mcc_2g_1x1;
 			else
-				index = PM_P2P_GO_P2P_GO_MCC_24_2x2;
+				index = mcc_2g_2x2;
 		} else if ((WLAN_REG_IS_5GHZ_CH_FREQ(
 			pm_conc_connection_list[0].freq)) &&
 			(WLAN_REG_IS_5GHZ_CH_FREQ(
 			pm_conc_connection_list[1].freq))) {
+		} else if (!(WLAN_REG_IS_24GHZ_CH_FREQ(
+			   pm_conc_connection_list[0].freq)) &&
+			   !(WLAN_REG_IS_24GHZ_CH_FREQ(
+			   pm_conc_connection_list[1].freq))) {
 			if (POLICY_MGR_ONE_ONE ==
-				pm_conc_connection_list[0].chain_mask)
-				index = PM_P2P_GO_P2P_GO_MCC_5_1x1;
+					pm_conc_connection_list[0].chain_mask)
+				index = mcc_5g_1x1;
 			else
-				index = PM_P2P_GO_P2P_GO_MCC_5_2x2;
+				index = mcc_5g_2x2;
 		} else {
 			if (POLICY_MGR_ONE_ONE ==
 				pm_conc_connection_list[0].chain_mask)
-				index = PM_P2P_GO_P2P_GO_MCC_24_5_1x1;
+				index = mcc_24_5_1x1;
 			else
-				index = PM_P2P_GO_P2P_GO_MCC_24_5_2x2;
+				index = mcc_24_5_2x2;
 		}
-	/* SBS or DBS */
-	} else if (pm_conc_connection_list[0].mac !=
-			pm_conc_connection_list[1].mac) {
+	}
+	return index;
+}
+
+/*
+ * policy_mgr_check_and_get_third_connection_pcl_table_index_for_dbs() -
+ * This function checks connection mode is in dbs or sbs and returns index
+ * value based on mode and prvided index inputs.
+ *
+ * @sbs_5g_1x1: index of sbs_5g_1x1 for provided concurrency
+ * @sbs_5g_2x2: index of sbs_5g_2x2 for provided concurrency
+ * @dbs_1x1: index of dbs_1x1 for provided concurrency
+ * @dbs_2x2: index of dbs_2x2 for provided concurrency
+ *
+ * Return: policy_mgr_two_connection_mode index
+ */
+static enum policy_mgr_two_connection_mode
+policy_mgr_check_and_get_third_connection_pcl_table_index_for_dbs(
+			enum policy_mgr_two_connection_mode sbs_5g_1x1,
+			enum policy_mgr_two_connection_mode sbs_5g_2x2,
+			enum policy_mgr_two_connection_mode dbs_1x1,
+			enum policy_mgr_two_connection_mode dbs_2x2)
+{
+	enum policy_mgr_two_connection_mode index = PM_MAX_TWO_CONNECTION_MODE;
+
+	if (pm_conc_connection_list[0].mac != pm_conc_connection_list[1].mac) {
 		/* SBS */
 		if ((WLAN_REG_IS_5GHZ_CH_FREQ(
 		    pm_conc_connection_list[0].freq)) &&
@@ -1788,16 +1963,89 @@ static enum policy_mgr_two_connection_mode
 		    pm_conc_connection_list[1].freq))) {
 			if (POLICY_MGR_ONE_ONE ==
 				pm_conc_connection_list[0].chain_mask)
-				index = PM_P2P_GO_P2P_GO_SBS_5_1x1;
+				index = sbs_5g_1x1;
+			else
+				index = sbs_5g_2x2;
 		} else {
 		/* DBS */
 			if (POLICY_MGR_ONE_ONE ==
 				pm_conc_connection_list[0].chain_mask)
-				index = PM_P2P_GO_P2P_GO_DBS_1x1;
+				index = dbs_1x1;
 			else
-				index = PM_P2P_GO_P2P_GO_DBS_2x2;
+				index = dbs_2x2;
 		}
 	}
+
+	return index;
+}
+
+static enum policy_mgr_two_connection_mode
+		policy_mgr_get_third_connection_pcl_table_index_cli_cli(void)
+{
+	enum policy_mgr_two_connection_mode index;
+
+	index =
+	policy_mgr_check_and_get_third_connection_pcl_table_index_for_scc(
+					PM_P2P_CLI_P2P_CLI_SCC_24_1x1,
+					PM_P2P_CLI_P2P_CLI_SCC_24_2x2,
+					PM_P2P_CLI_P2P_CLI_SCC_5_1x1,
+					PM_P2P_CLI_P2P_CLI_SCC_5_2x2);
+	if (index != PM_MAX_TWO_CONNECTION_MODE)
+		return index;
+
+	index =
+	policy_mgr_check_and_get_third_connection_pcl_table_index_for_mcc(
+					PM_P2P_CLI_P2P_CLI_MCC_24_1x1,
+					PM_P2P_CLI_P2P_CLI_MCC_24_2x2,
+					PM_P2P_CLI_P2P_CLI_MCC_5_1x1,
+					PM_P2P_CLI_P2P_CLI_MCC_5_2x2,
+					PM_P2P_CLI_P2P_CLI_MCC_24_5_1x1,
+					PM_P2P_CLI_P2P_CLI_MCC_24_5_2x2);
+
+	if (index != PM_MAX_TWO_CONNECTION_MODE)
+		return index;
+
+	index =
+	policy_mgr_check_and_get_third_connection_pcl_table_index_for_dbs(
+					PM_P2P_CLI_P2P_CLI_SBS_5_1x1,
+					PM_P2P_CLI_P2P_CLI_SBS_5_2x2,
+					PM_P2P_CLI_P2P_CLI_DBS_1x1,
+					PM_P2P_CLI_P2P_CLI_DBS_2x2);
+
+	return index;
+}
+
+static enum policy_mgr_two_connection_mode
+		policy_mgr_get_third_connection_pcl_table_index_go_go(void)
+{
+	enum policy_mgr_two_connection_mode index;
+
+	index =
+	policy_mgr_check_and_get_third_connection_pcl_table_index_for_scc(
+					PM_P2P_GO_P2P_GO_SCC_24_1x1,
+					PM_P2P_GO_P2P_GO_SCC_24_2x2,
+					PM_P2P_GO_P2P_GO_SCC_5_1x1,
+					PM_P2P_GO_P2P_GO_SCC_5_2x2);
+	if (index != PM_MAX_TWO_CONNECTION_MODE)
+		return index;
+
+	index =
+	policy_mgr_check_and_get_third_connection_pcl_table_index_for_mcc(
+					PM_P2P_GO_P2P_GO_MCC_24_1x1,
+					PM_P2P_GO_P2P_GO_MCC_24_2x2,
+					PM_P2P_GO_P2P_GO_MCC_5_1x1,
+					PM_P2P_GO_P2P_GO_MCC_5_2x2,
+					PM_P2P_GO_P2P_GO_MCC_24_5_1x1,
+					PM_P2P_GO_P2P_GO_MCC_24_5_2x2);
+	if (index != PM_MAX_TWO_CONNECTION_MODE)
+		return index;
+
+	index =
+	policy_mgr_check_and_get_third_connection_pcl_table_index_for_dbs(
+					PM_P2P_GO_P2P_GO_SBS_5_1x1,
+					PM_P2P_GO_P2P_GO_SBS_5_2x2,
+					PM_P2P_GO_P2P_GO_DBS_1x1,
+					PM_P2P_GO_P2P_GO_DBS_2x2);
 	return index;
 }
 
@@ -1976,6 +2224,11 @@ enum policy_mgr_two_connection_mode
 		 (pm_conc_connection_list[1].mode == PM_P2P_GO_MODE))
 		index =
 		policy_mgr_get_third_connection_pcl_table_index_go_go();
+
+	else if ((pm_conc_connection_list[0].mode == PM_P2P_CLIENT_MODE) &&
+		 (pm_conc_connection_list[1].mode == PM_P2P_CLIENT_MODE))
+		index =
+		policy_mgr_get_third_connection_pcl_table_index_cli_cli();
 
 	policy_mgr_debug("mode0:%d mode1:%d freq0:%d freq1:%d chain:%d index:%d",
 			 pm_conc_connection_list[0].mode,
@@ -2547,7 +2800,7 @@ QDF_STATUS policy_mgr_get_valid_chan_weights(struct wlan_objmgr_psoc *psoc,
 	if ((mode == PM_P2P_GO_MODE || mode == PM_P2P_CLIENT_MODE) ||
 	    (mode == PM_STA_MODE &&
 	     policy_mgr_mode_specific_connection_count(psoc, PM_STA_MODE,
-						       NULL) > 0)) {
+						       NULL))) {
 		/*
 		 * Store the STA mode's parameter and temporarily delete it
 		 * from the concurrency table. This way the allow concurrency
@@ -2566,10 +2819,22 @@ QDF_STATUS policy_mgr_get_valid_chan_weights(struct wlan_objmgr_psoc *psoc,
 		for (i = 0; i < weight->saved_num_chan; i++) {
 			if (policy_mgr_is_concurrency_allowed
 				(psoc, mode, weight->saved_chan_list[i],
-				HW_MODE_20_MHZ)) {
+				HW_MODE_20_MHZ) &&
+			     (policy_mgr_mode_specific_connection_count
+			      (psoc, PM_P2P_GO_MODE, NULL) ||
+			      policy_mgr_mode_specific_connection_count
+			      (psoc, PM_P2P_CLIENT_MODE, NULL)) &&
+			      policy_mgr_go_scc_enforced(psoc))
+		/*
+		 * For two port/three port connection where if one p2p
+		 * connection is already present and force scc is enabled
+		 * then enforce Go negotiation channels to be strictly
+		 * based on PCL list.
+		 */
+				weight->weighed_valid_list[i] = 0;
+			else
 				weight->weighed_valid_list[i] =
-					WEIGHT_OF_NON_PCL_CHANNELS;
-			}
+						WEIGHT_OF_NON_PCL_CHANNELS;
 		}
 		/* Restore the connection info */
 		if (mode == PM_STA_MODE)
@@ -2786,4 +3051,83 @@ bool policy_mgr_is_sta_chan_valid_for_connect_and_roam(
 		return false;
 
 	return true;
+}
+
+bool policy_mgr_is_3rd_conn_on_same_band_allowed(struct wlan_objmgr_psoc *psoc,
+						 enum policy_mgr_con_mode mode)
+{
+	enum policy_mgr_pcl_type pcl = PM_NONE;
+	enum policy_mgr_conc_priority_mode conc_system_pref = 0;
+	enum policy_mgr_two_connection_mode third_index = 0;
+	struct policy_mgr_psoc_priv_obj *pm_ctx;
+	bool ret = false;
+
+	pm_ctx = policy_mgr_get_context(psoc);
+	if (!pm_ctx) {
+		policy_mgr_err("context is NULL");
+			return false;
+	}
+
+	policy_mgr_debug("pref:%d requested mode:%d",
+			 pm_ctx->cur_conc_system_pref, mode);
+
+	switch (pm_ctx->cur_conc_system_pref) {
+	case 0:
+		conc_system_pref = PM_THROUGHPUT;
+		break;
+	case 1:
+		conc_system_pref = PM_POWERSAVE;
+		break;
+	case 2:
+		conc_system_pref = PM_LATENCY;
+		break;
+	default:
+		policy_mgr_err("unknown cur_conc_system_pref value %d",
+			       pm_ctx->cur_conc_system_pref);
+		break;
+	}
+
+	third_index = policy_mgr_get_third_connection_pcl_table_index(psoc);
+	if (PM_MAX_TWO_CONNECTION_MODE == third_index) {
+		policy_mgr_err(
+			"couldn't find index for 3rd connection pcl table");
+			return false;
+	}
+	if (policy_mgr_is_hw_dbs_capable(psoc) == true) {
+		pcl = (*third_connection_pcl_dbs_table)
+			[third_index][mode][conc_system_pref];
+	} else {
+		pcl = (*third_connection_pcl_non_dbs_table)
+			[third_index][mode][conc_system_pref];
+	}
+
+	policy_mgr_debug("pcl for third connection is %d", pcl);
+	switch (pcl) {
+	case PM_SCC_CH:
+	case PM_SCC_CH_24G:
+	case PM_SCC_CH_5G:
+	case PM_24G_SCC_CH:
+	case PM_5G_SCC_CH:
+	case PM_SCC_ON_5_SCC_ON_24_24G:
+	case PM_SCC_ON_5_SCC_ON_24_5G:
+	case PM_SCC_ON_24_SCC_ON_5_24G:
+	case PM_SCC_ON_24_SCC_ON_5_5G:
+	case PM_SCC_ON_5_SCC_ON_24:
+	case PM_SCC_ON_24_SCC_ON_5:
+	case PM_24G_SCC_CH_SBS_CH:
+	case PM_24G_SCC_CH_SBS_CH_5G:
+	case PM_MCC_CH:
+	case PM_MCC_CH_24G:
+	case PM_MCC_CH_5G:
+	case PM_24G_MCC_CH:
+	case PM_5G_MCC_CH:
+	case PM_24G_SBS_CH_MCC_CH:
+		ret = true;
+		break;
+	default:
+		policy_mgr_debug("Not in SCC case");
+		ret = false;
+		break;
+	}
+	return ret;
 }

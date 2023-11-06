@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2018-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -2695,6 +2695,23 @@ ucfg_mlme_set_rf_test_mode_enabled(struct wlan_objmgr_psoc *psoc, bool value)
 }
 
 /**
+ * ucfg_mlme_is_standard_6ghz_conn_policy_enabled() - Get 6ghz standard
+ *                                                    connection policy flag
+ * @psoc: pointer to psoc object
+ * @value: pointer to hold the value of flag
+ *
+ * Inline UCFG API to be used by HDD/OSIF callers
+ *
+ * Return: QDF Status
+ */
+static inline QDF_STATUS
+ucfg_mlme_is_standard_6ghz_conn_policy_enabled(struct wlan_objmgr_psoc *psoc,
+					       bool *value)
+{
+	return wlan_mlme_is_standard_6ghz_conn_policy_enabled(psoc, value);
+}
+
+/**
  * ucfg_mlme_get_opr_rate() - Get operational rate set
  * @psoc: pointer to vdev object
  * @buf: buffer to get rates set
@@ -4245,4 +4262,24 @@ ucfg_mlme_is_sta_mon_conc_supported(struct wlan_objmgr_psoc *psoc)
 	return wlan_mlme_is_sta_mon_conc_supported(psoc);
 }
 
+static inline QDF_STATUS
+ucfg_mlme_cfg_get_vht_ampdu_len_exp(struct wlan_objmgr_psoc *psoc,
+				    uint8_t *value)
+{
+	return wlan_mlme_cfg_get_vht_ampdu_len_exp(psoc, value);
+}
+
+static inline QDF_STATUS
+ucfg_mlme_cfg_get_vht_max_mpdu_len(struct wlan_objmgr_psoc *psoc,
+				   uint8_t *value)
+{
+	return wlan_mlme_cfg_get_vht_max_mpdu_len(psoc, value);
+}
+
+static inline QDF_STATUS
+ucfg_mlme_cfg_get_ht_smps(struct wlan_objmgr_psoc *psoc,
+			  uint8_t *value)
+{
+	return wlan_mlme_cfg_get_ht_smps(psoc, value);
+}
 #endif /* _WLAN_MLME_UCFG_API_H_ */

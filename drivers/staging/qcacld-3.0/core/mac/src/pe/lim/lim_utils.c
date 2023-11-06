@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2011-2020 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -3765,10 +3765,41 @@ static void lim_ht_switch_chnl_req(struct pe_session *session)
 	}
 }
 
+uint8_t lim_get_cb_mode_for_freq(struct mac_context *mac,
+				 struct pe_session *session,
+				 qdf_freq_t chan_freq)
+{
+	uint8_t cb_mode = mac->roam.configParam.channelBondingMode5GHz;
+
+	if (WLAN_REG_IS_24GHZ_CH_FREQ(chan_freq)) {
+		if (session->force_24ghz_in_ht20) {
+			cb_mode = WNI_CFG_CHANNEL_BONDING_MODE_DISABLE;
+			pe_debug_rl("vdev %d force 20 Mhz in 2.4 GHz",
+				    session->vdev_id);
+		} else {
+			cb_mode = mac->roam.configParam.channelBondingMode24GHz;
+		}
+	}
+
+	return cb_mode;
+}
+
 void lim_update_sta_run_time_ht_switch_chnl_params(struct mac_context *mac,
 						   tDot11fIEHTInfo *pHTInfo,
 						   struct pe_session *pe_session)
 {
+	uint8_t cb_mode;
+
+	cb_mode = lim_get_cb_mode_for_freq(mac, pe_session,
+					   pe_session->curr_op_freq);
+
+	/* If self capability is set to '20Mhz only', then do not change the CB mode. */
+	if (cb_mode == WNI_CFG_CHANNEL_BONDING_MODE_DISABLE) {
+		pe_debug_rl("self_cb_mode 0 for freq %d",
+			    pe_session->curr_op_freq);
+		return;
+	}
+
 	/* If self capability is set to '20Mhz only', then do not change the CB mode. */
 	if (!lim_get_ht_capability
 		    (mac, eHT_SUPPORTED_CHANNEL_WIDTH_SET, pe_session))
@@ -6653,46 +6684,6 @@ void lim_update_obss_scanparams(struct pe_session *session,
 }
 
 /**
- * lim_is_robust_mgmt_action_frame() - Check if action category is
- * robust action frame
- * @action_category: Action frame category.
- *
- * This function is used to check if given action category is robust
- * action frame.
- *
- * Return: bool
- */
-bool lim_is_robust_mgmt_action_frame(uint8_t action_category)
-{
-	switch (action_category) {
-	/*
-	 * NOTE: This function doesn't take care of the DMG
-	 * (Directional Multi-Gigatbit) BSS case as 8011ad
-	 * support is not yet added. In future, if the support
-	 * is required then this function need few more arguments
-	 * and little change in logic.
-	 */
-	case ACTION_CATEGORY_SPECTRUM_MGMT:
-	case ACTION_CATEGORY_QOS:
-	case ACTION_CATEGORY_DLS:
-	case ACTION_CATEGORY_BACK:
-	case ACTION_CATEGORY_RRM:
-	case ACTION_FAST_BSS_TRNST:
-	case ACTION_CATEGORY_SA_QUERY:
-	case ACTION_CATEGORY_PROTECTED_DUAL_OF_PUBLIC_ACTION:
-	case ACTION_CATEGORY_WNM:
-	case ACTION_CATEGORY_MESH_ACTION:
-	case ACTION_CATEGORY_MULTIHOP_ACTION:
-	case ACTION_CATEGORY_FST:
-		return true;
-	default:
-		pe_debug("non-PMF action category: %d", action_category);
-		break;
-	}
-	return false;
-}
-
-/**
  * lim_compute_ext_cap_ie_length - compute the length of ext cap ie
  * based on the bits set
  * @ext_cap: extended IEs structure
@@ -8288,14 +8279,26 @@ QDF_STATUS lim_util_get_type_subtype(void *pkt, uint8_t *type,
 	return QDF_STATUS_SUCCESS;
 }
 
-enum rateid lim_get_min_session_txrate(struct pe_session *session)
+enum rateid lim_get_min_session_txrate(struct pe_session *session,
+				       qdf_freq_t *pre_auth_freq)
 {
 	enum rateid rid = RATEID_DEFAULT;
 	uint8_t min_rate = SIR_MAC_RATE_54, curr_rate, i;
-	tSirMacRateSet *rateset = &session->rateSet;
+	tSirMacRateSet *rateset;
 
 	if (!session)
 		return rid;
+
+	rateset = &session->rateSet;
+
+	if (pre_auth_freq) {
+		pe_debug("updated rateset to pre auth freq %d",
+			 *pre_auth_freq);
+		if ((*pre_auth_freq))
+			csr_get_basic_rates(rateset, *pre_auth_freq);
+		else
+			return rid;
+	}
 
 	for (i = 0; i < rateset->numRates; i++) {
 		/* Ignore MSB - set to indicate basic rate */
@@ -9328,4 +9331,128 @@ QDF_STATUS lim_pre_vdev_start(struct mac_context *mac,
 				session->ssId.length);
 
 	return lim_set_ch_phy_mode(mlme_obj->vdev, session->dot11mode);
+}
+
+void lim_update_nss(struct mac_context *mac_ctx, tpDphHashNode sta_ds,
+		    uint8_t rx_nss, struct pe_session *session)
+{
+	if (sta_ds->vhtSupportedRxNss != (rx_nss + 1)) {
+		if (session->nss_forced_1x1) {
+			pe_debug("Not Updating NSS for special AP");
+			return;
+		}
+		sta_ds->vhtSupportedRxNss = rx_nss + 1;
+		lim_set_nss_change(mac_ctx, session,
+				   sta_ds->vhtSupportedRxNss,
+				   sta_ds->staAddr);
+	}
+}
+
+bool lim_update_channel_width(struct mac_context *mac_ctx,
+			      tpDphHashNode sta_ptr,
+			      struct pe_session *session,
+			      uint8_t ch_width, uint8_t *new_ch_width)
+{
+	uint8_t cb_mode, oper_mode;
+	uint32_t fw_vht_ch_wd;
+
+	cb_mode = lim_get_cb_mode_for_freq(mac_ctx, session,
+					   session->curr_op_freq);
+	/*
+	 * Do not update the channel bonding mode if channel bonding
+	 * mode is disabled in INI.
+	 */
+	if (cb_mode == WNI_CFG_CHANNEL_BONDING_MODE_DISABLE) {
+		pe_debug("channel bonding disabled");
+		return false;
+	}
+
+	if (sta_ptr->htSupportedChannelWidthSet) {
+		if (sta_ptr->vhtSupportedChannelWidthSet >
+			WNI_CFG_VHT_CHANNEL_WIDTH_80MHZ)
+			oper_mode = eHT_CHANNEL_WIDTH_160MHZ;
+		else
+			oper_mode = sta_ptr->vhtSupportedChannelWidthSet + 1;
+	} else {
+		oper_mode = eHT_CHANNEL_WIDTH_20MHZ;
+	}
+
+	if (((oper_mode == eHT_CHANNEL_WIDTH_80MHZ) &&
+	     (ch_width > eHT_CHANNEL_WIDTH_80MHZ)) ||
+	    (oper_mode == ch_width))
+		return false;
+
+	fw_vht_ch_wd = wma_get_vht_ch_width();
+
+	pe_debug("ChannelWidth - Current : %d, New: %d mac : " QDF_MAC_ADDR_FMT,
+		 oper_mode, ch_width, QDF_MAC_ADDR_REF(sta_ptr->staAddr));
+
+	if (ch_width >= eHT_CHANNEL_WIDTH_160MHZ &&
+	    (fw_vht_ch_wd >= eHT_CHANNEL_WIDTH_160MHZ)) {
+		sta_ptr->vhtSupportedChannelWidthSet =
+				WNI_CFG_VHT_CHANNEL_WIDTH_160MHZ;
+		sta_ptr->htSupportedChannelWidthSet =
+				eHT_CHANNEL_WIDTH_40MHZ;
+		*new_ch_width = eHT_CHANNEL_WIDTH_160MHZ;
+	} else if (ch_width >= eHT_CHANNEL_WIDTH_80MHZ) {
+		sta_ptr->vhtSupportedChannelWidthSet =
+				WNI_CFG_VHT_CHANNEL_WIDTH_80MHZ;
+		sta_ptr->htSupportedChannelWidthSet =
+				eHT_CHANNEL_WIDTH_40MHZ;
+		*new_ch_width = eHT_CHANNEL_WIDTH_80MHZ;
+	} else if (ch_width == eHT_CHANNEL_WIDTH_40MHZ) {
+		sta_ptr->vhtSupportedChannelWidthSet =
+				WNI_CFG_VHT_CHANNEL_WIDTH_20_40MHZ;
+		sta_ptr->htSupportedChannelWidthSet =
+				eHT_CHANNEL_WIDTH_40MHZ;
+		*new_ch_width = eHT_CHANNEL_WIDTH_40MHZ;
+	} else if (ch_width == eHT_CHANNEL_WIDTH_20MHZ) {
+		sta_ptr->vhtSupportedChannelWidthSet =
+				WNI_CFG_VHT_CHANNEL_WIDTH_20_40MHZ;
+		sta_ptr->htSupportedChannelWidthSet =
+				eHT_CHANNEL_WIDTH_20MHZ;
+		*new_ch_width = eHT_CHANNEL_WIDTH_20MHZ;
+	}
+
+	lim_check_vht_op_mode_change(mac_ctx, session, *new_ch_width,
+				     sta_ptr->staAddr);
+	return true;
+}
+
+uint8_t lim_get_vht_ch_width(tDot11fIEVHTCaps *vht_cap,
+			     tDot11fIEVHTOperation *vht_op,
+			     tDot11fIEHTInfo *ht_info)
+{
+	uint8_t ccfs0, ccfs1, offset;
+	uint8_t ch_width;
+
+	ccfs0 = vht_op->chan_center_freq_seg0;
+	ccfs1 = vht_op->chan_center_freq_seg1;
+	ch_width = vht_op->chanWidth;
+
+	if (ch_width > WNI_CFG_VHT_CHANNEL_WIDTH_80_PLUS_80MHZ) {
+		pe_err("Invalid ch width in vht operation IE %d", ch_width);
+		return WNI_CFG_VHT_CHANNEL_WIDTH_20_40MHZ;
+	}
+
+	if (vht_cap->vht_extended_nss_bw_cap &&
+	    vht_cap->extended_nss_bw_supp && ht_info && ht_info->present)
+		ccfs1 = ht_info->chan_center_freq_seg2;
+
+	/* According to new VHTOP IE definition, vht ch_width will
+	 * be 1 for 80MHz, 160MHz and 80+80MHz.
+	 *
+	 * To get the correct operation ch_width, find center
+	 * frequency difference.
+	 */
+	if (ch_width == WNI_CFG_VHT_CHANNEL_WIDTH_80MHZ && ccfs1) {
+		offset = abs(ccfs0 - ccfs1);
+
+		if (offset == 8)
+			ch_width =  WNI_CFG_VHT_CHANNEL_WIDTH_160MHZ;
+		else if (offset > 16)
+			ch_width = WNI_CFG_VHT_CHANNEL_WIDTH_80_PLUS_80MHZ;
+	}
+	pe_debug("The VHT Operation channel width is %d", ch_width);
+	return ch_width;
 }

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2011-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -336,8 +337,7 @@ uint32_t csr_translate_to_wni_cfg_dot11_mode(struct mac_context *mac,
 				    enum csr_cfgdot11mode csrDot11Mode);
 void csr_save_channel_power_for_band(struct mac_context *mac, bool fPopulate5GBand);
 void csr_apply_channel_power_info_to_fw(struct mac_context *mac,
-					struct csr_channel *pChannelList,
-					uint8_t *countryCode);
+					struct csr_channel *pChannelList);
 void csr_apply_power2_current(struct mac_context *mac);
 
 /* return a bool to indicate whether roaming completed or continue. */
@@ -984,15 +984,15 @@ bool is_disconnect_pending(struct mac_context *mac_ctx,
 				   uint8_t sessionid);
 
 /**
- * is_disconnect_pending_on_other_vdev() - To check whether a disconnect req
- * is pending on any other vdev or not
+ * is_any_other_vdev_connecting_disconnecting() - To check whether any other
+ * vdev is in waiting for vdev operations (connect/disconnect or start/stop AP)
  * @mac_tx: mac context
  * @sessionid: session id
  *
  * Return true if disconnect is pending on any other vdev
  */
-bool is_disconnect_pending_on_other_vdev(struct mac_context *mac_ctx,
-					 uint8_t sessionid);
+bool is_any_other_vdev_connecting_disconnecting(struct mac_context *mac_ctx,
+						uint8_t sessionid);
 
 QDF_STATUS
 csr_roam_prepare_bss_config_from_profile(struct mac_context *mac_ctx,

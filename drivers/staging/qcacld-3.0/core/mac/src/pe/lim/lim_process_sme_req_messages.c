@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -1222,7 +1222,7 @@ __lim_process_sme_join_req(struct mac_context *mac_ctx, void *msg_buf)
 	uint8_t vdev_id = 0;
 	int8_t local_power_constraint = 0;
 	struct vdev_mlme_obj *mlme_obj;
-	bool is_pwr_constraint;
+	bool is_pwr_constraint = false;
 	uint16_t ie_len;
 	const uint8_t *vendor_ie;
 	struct bss_description *bss_desc;
@@ -1613,6 +1613,9 @@ __lim_process_sme_join_req(struct mac_context *mac_ctx, void *msg_buf)
 			&session->limCurrentBssQosCaps,
 			&session->gLimCurrentBssUapsd,
 			&local_power_constraint, session, &is_pwr_constraint);
+
+		mlme_obj->reg_tpc_obj.is_power_constraint_abs =
+							!is_pwr_constraint;
 
 		if (wlan_reg_is_ext_tpc_supported(mac_ctx->psoc)) {
 			mlme_obj->reg_tpc_obj.ap_constraint_power =
@@ -2017,7 +2020,6 @@ uint8_t lim_get_max_tx_power(struct mac_context *mac,
 
 void lim_calculate_tpc(struct mac_context *mac,
 		       struct pe_session *session,
-		       bool is_pwr_constraint_absolute,
 		       uint8_t ap_pwr_type,
 		       bool ctry_code_match)
 {
@@ -2138,8 +2140,11 @@ void lim_calculate_tpc(struct mac_context *mac,
 		if (mlme_obj->reg_tpc_obj.ap_constraint_power) {
 			local_constraint =
 				mlme_obj->reg_tpc_obj.ap_constraint_power;
-			reg_max = mlme_obj->reg_tpc_obj.reg_max[i];
-			if (is_pwr_constraint_absolute)
+			pe_debug("local constraint: %d"
+				 "power constraint absolute: %d",
+				 local_constraint,
+				 mlme_obj->reg_tpc_obj.is_power_constraint_abs);
+			if (mlme_obj->reg_tpc_obj.is_power_constraint_abs)
 				max_tx_power = QDF_MIN(reg_max,
 						       local_constraint);
 			else
@@ -2178,8 +2183,9 @@ void lim_calculate_tpc(struct mac_context *mac,
 	mlme_obj->reg_tpc_obj.eirp_power = reg_max;
 	mlme_obj->reg_tpc_obj.power_type_6g = ap_power_type_6g;
 
-	pe_debug("num_pwr_levels: %d, is_psd_power: %d, total eirp_power: %d, ap_pwr_type: %d",
-		 num_pwr_levels, is_psd_power, reg_max, ap_power_type_6g);
+	pe_debug("num_pwr_levels: %d, is_psd_power: %d, total eirp_power: %d, ap_pwr_type: %d tx_pwrlimit: %d",
+		 num_pwr_levels, is_psd_power, reg_max, ap_power_type_6g,
+		 mlme_obj->mgmt.generic.tx_pwrlimit);
 }
 
 /**

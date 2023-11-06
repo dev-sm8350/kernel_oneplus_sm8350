@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -201,6 +201,7 @@
 #ifdef WLAN_FEATURE_DYNAMIC_RX_AGGREGATION
 #include <net/pkt_cls.h>
 #endif
+#include <linux/bitfield.h>
 
 #ifdef MODULE
 #ifdef WLAN_WEAR_CHIPSET
@@ -2230,6 +2231,42 @@ static void hdd_extract_fw_version_info(struct hdd_context *hdd_ctx)
 #if defined(WLAN_FEATURE_11AX) && \
 	(defined(CFG80211_SBAND_IFTYPE_DATA_BACKPORT) || \
 	 (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)))
+
+#if defined(CONFIG_BAND_6GHZ) && (defined(IEEE80211_HE_6GHZ_CAP_MIN_MPDU_START))
+static void hdd_update_wiphy_he_6ghz_capa(struct hdd_context *hdd_ctx)
+{
+	uint16_t he_6ghz_capa = 0;
+	uint8_t min_mpdu_start_spacing;
+	uint8_t max_ampdu_len_exp;
+	uint8_t max_mpdu_len;
+	uint8_t sm_pow_save;
+
+	ucfg_mlme_get_ht_mpdu_density(hdd_ctx->psoc, &min_mpdu_start_spacing);
+	he_6ghz_capa |= FIELD_PREP(IEEE80211_HE_6GHZ_CAP_MIN_MPDU_START,
+				   min_mpdu_start_spacing);
+
+	ucfg_mlme_cfg_get_vht_ampdu_len_exp(hdd_ctx->psoc, &max_ampdu_len_exp);
+	he_6ghz_capa |= FIELD_PREP(IEEE80211_HE_6GHZ_CAP_MAX_AMPDU_LEN_EXP,
+				   max_ampdu_len_exp);
+
+	ucfg_mlme_cfg_get_vht_max_mpdu_len(hdd_ctx->psoc, &max_mpdu_len);
+	he_6ghz_capa |= FIELD_PREP(IEEE80211_HE_6GHZ_CAP_MAX_MPDU_LEN,
+				   max_mpdu_len);
+
+	ucfg_mlme_cfg_get_ht_smps(hdd_ctx->psoc, &sm_pow_save);
+	he_6ghz_capa |= FIELD_PREP(IEEE80211_HE_6GHZ_CAP_SM_PS, sm_pow_save);
+
+	he_6ghz_capa |= IEEE80211_HE_6GHZ_CAP_RX_ANTPAT_CONS;
+	he_6ghz_capa |= IEEE80211_HE_6GHZ_CAP_TX_ANTPAT_CONS;
+
+	hdd_ctx->iftype_data_6g->he_6ghz_capa.capa = he_6ghz_capa;
+}
+#else
+static inline void hdd_update_wiphy_he_6ghz_capa(struct hdd_context *hdd_ctx)
+{
+}
+#endif
+
 #if defined(CONFIG_BAND_6GHZ) && (defined(CFG80211_6GHZ_BAND_SUPPORTED) || \
       (KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE))
 static void
@@ -2269,6 +2306,8 @@ hdd_update_wiphy_he_caps_6ghz(struct hdd_context *hdd_ctx,
 
 	if (he_cap_cfg->twt_responder)
 		mac_info_6g[0] |= IEEE80211_HE_MAC_CAP0_TWT_RES;
+
+	hdd_update_wiphy_he_6ghz_capa(hdd_ctx);
 
 	band_6g->iftype_data = hdd_ctx->iftype_data_6g;
 }
@@ -3564,6 +3603,7 @@ static void hdd_nan_register_callbacks(struct hdd_context *hdd_ctx)
 	cb_obj.peer_departed_ind = hdd_ndp_peer_departed_handler;
 
 	cb_obj.nan_concurrency_update = hdd_nan_concurrency_update;
+	cb_obj.set_mc_list = hdd_update_multicast_list;
 
 	os_if_nan_register_hdd_callbacks(hdd_ctx->psoc, &cb_obj);
 }
@@ -4138,7 +4178,7 @@ int hdd_wlan_start_modules(struct hdd_context *hdd_ctx, bool reinit)
 			goto deregister_cb;
 
 		/*
-		 * NAN compoenet requires certian operations like, open adapter,
+		 * NAN component requires certain operations like, open adapter,
 		 * close adapter, etc. to be initiated by HDD, for those
 		 * register HDD callbacks with UMAC's NAN componenet.
 		 */
@@ -4924,8 +4964,7 @@ hdd_set_derived_multicast_list(struct wlan_objmgr_psoc *psoc,
 
 /**
  * __hdd_set_multicast_list() - set the multicast address list
- * @dev:	Pointer to the WLAN device.
- * @skb:	Pointer to OS packet (sk_buff).
+ * @dev: Pointer to the WLAN device.
  *
  * This funciton sets the multicast address list.
  *
@@ -4967,6 +5006,7 @@ static void __hdd_set_multicast_list(struct net_device *dev)
 	if (!mc_list_request)
 		return;
 
+	qdf_spin_lock_bh(&adapter->mc_list_lock);
 	/* Delete already configured multicast address list */
 	if (adapter->mc_addr_list.mc_cnt > 0)
 		hdd_disable_and_flush_mc_addr_list(adapter,
@@ -5019,6 +5059,7 @@ static void __hdd_set_multicast_list(struct net_device *dev)
 	hdd_enable_mc_addr_filtering(adapter, pmo_mc_list_change_notify);
 
 free_req:
+	qdf_spin_unlock_bh(&adapter->mc_list_lock);
 	qdf_mem_free(mc_list_request);
 }
 
@@ -5038,6 +5079,33 @@ static void hdd_set_multicast_list(struct net_device *net_dev)
 	__hdd_set_multicast_list(net_dev);
 
 	osif_vdev_sync_op_stop(vdev_sync);
+}
+
+void hdd_update_multicast_list(struct wlan_objmgr_vdev *vdev)
+{
+	struct hdd_context *hdd_ctx = cds_get_context(QDF_MODULE_ID_HDD);
+	struct hdd_adapter *adapter;
+	uint8_t vdev_id = wlan_vdev_get_id(vdev);
+	struct net_device *net_dev;
+
+	if (!hdd_ctx) {
+		hdd_err("hdd_ctx is null");
+		return;
+	}
+
+	adapter = hdd_get_adapter_by_vdev(hdd_ctx, vdev_id);
+	if (!adapter) {
+		hdd_err("adapter is null for vdev_id %d", vdev_id);
+		return;
+	}
+
+	net_dev = adapter->dev;
+	if (!net_dev) {
+		hdd_err("netdev is null");
+		return;
+	}
+
+	__hdd_set_multicast_list(net_dev);
 }
 
 #ifdef WLAN_FEATURE_TSF_PTP
@@ -6144,6 +6212,7 @@ static void hdd_cleanup_adapter(struct hdd_context *hdd_ctx,
 	hdd_periodic_sta_stats_mutex_destroy(adapter);
 	hdd_apf_context_destroy(adapter);
 	qdf_spinlock_destroy(&adapter->vdev_lock);
+	qdf_spinlock_destroy(&adapter->mc_list_lock);
 	hdd_sta_info_deinit(&adapter->sta_info_list);
 	hdd_sta_info_deinit(&adapter->cache_sta_info_list);
 
@@ -6971,6 +7040,7 @@ struct hdd_adapter *hdd_open_adapter(struct hdd_context *hdd_ctx, uint8_t sessio
 	qdf_list_create(&adapter->blocked_scan_request_q, WLAN_MAX_SCAN_COUNT);
 	qdf_mutex_create(&adapter->blocked_scan_request_q_lock);
 	qdf_event_create(&adapter->acs_complete_event);
+	qdf_spinlock_create(&adapter->mc_list_lock);
 	qdf_event_create(&adapter->peer_cleanup_done);
 	hdd_sta_info_init(&adapter->sta_info_list);
 	hdd_sta_info_init(&adapter->cache_sta_info_list);
@@ -7217,12 +7287,13 @@ static void hdd_close_pre_cac_adapter(struct hdd_context *hdd_ctx)
 							SAP_PRE_CAC_IFNAME);
 	if (!pre_cac_adapter)
 		return;
+	hdd_ctx->sap_pre_cac_work.fn = NULL;
+	hdd_ctx->sap_pre_cac_work.arg = NULL;
 
 	errno = osif_vdev_sync_trans_start_wait(pre_cac_adapter->dev,
 						&vdev_sync);
 	if (errno)
 		return;
-
 	osif_vdev_sync_unregister(pre_cac_adapter->dev);
 	osif_vdev_sync_wait_for_ops(vdev_sync);
 
@@ -7450,7 +7521,7 @@ QDF_STATUS hdd_stop_adapter(struct hdd_context *hdd_ctx,
 			sap_ctx = WLAN_HDD_GET_SAP_CTX_PTR(adapter);
 			if (!wlan_sap_is_pre_cac_context(sap_ctx) &&
 			    (hdd_ctx->sap_pre_cac_work.fn))
-				cds_flush_work(&hdd_ctx->sap_pre_cac_work);
+				qdf_flush_work(&hdd_ctx->sap_pre_cac_work);
 
 			hdd_close_pre_cac_adapter(hdd_ctx);
 
@@ -7627,7 +7698,7 @@ QDF_STATUS hdd_stop_all_adapters(struct hdd_context *hdd_ctx)
 	hdd_enter();
 
 	if (hdd_ctx->sap_pre_cac_work.fn)
-		cds_flush_work(&hdd_ctx->sap_pre_cac_work);
+		qdf_flush_work(&hdd_ctx->sap_pre_cac_work);
 
 	hdd_for_each_adapter_dev_held_safe(hdd_ctx, adapter, next_adapter,
 					   NET_DEV_HOLD_STOP_ALL_ADAPTERS) {
@@ -9611,7 +9682,6 @@ void hdd_prevent_suspend_timeout(uint32_t timeout, uint32_t reason)
 QDF_STATUS hdd_set_sme_chan_list(struct hdd_context *hdd_ctx)
 {
 	return sme_init_chan_list(hdd_ctx->mac_handle,
-				  hdd_ctx->reg.alpha2,
 				  hdd_ctx->reg.cc_src);
 }
 
@@ -10498,6 +10568,13 @@ void hdd_send_mscs_action_frame(struct hdd_context *hdd_ctx,
 {
 	uint64_t mscs_vo_pkt_delta;
 	unsigned long tx_vo_pkts;
+
+	/*
+	 * To disable MSCS feature in driver set mscs_pkt_threshold = 0
+	 * in ini file.
+	 */
+	if (!hdd_ctx->config->mscs_pkt_threshold)
+		return;
 
 	tx_vo_pkts = adapter->hdd_stats.tx_rx_stats.tx_classified_ac[SME_AC_VO];
 
@@ -14240,6 +14317,7 @@ static int hdd_features_init(struct hdd_context *hdd_ctx)
 	mac_handle_t mac_handle;
 	bool b_cts2self, is_imps_enabled;
 	bool rf_test_mode;
+	bool std_6ghz_conn_policy;
 
 	hdd_enter();
 
@@ -14338,6 +14416,17 @@ static int hdd_features_init(struct hdd_context *hdd_ctx)
 		wlan_cm_set_6ghz_key_mgmt_mask(hdd_ctx->psoc,
 					       ALLOWED_KEYMGMT_6G_MASK);
 	}
+
+	status = ucfg_mlme_is_standard_6ghz_conn_policy_enabled(hdd_ctx->psoc,
+							&std_6ghz_conn_policy);
+
+	if (!QDF_IS_STATUS_SUCCESS(status)) {
+		hdd_err("Get 6ghz standard connection policy failed");
+		return QDF_STATUS_E_FAILURE;
+	}
+	if (std_6ghz_conn_policy)
+		wlan_cm_set_standard_6ghz_conn_policy(hdd_ctx->psoc, true);
+
 	hdd_thermal_stats_cmd_init(hdd_ctx);
 	sme_set_cal_failure_event_cb(hdd_ctx->mac_handle,
 				     hdd_cal_fail_send_event);
@@ -17883,6 +17972,11 @@ static int con_mode_handler_ftm(const char *kmessage,
 
 	ret = param_set_int(kmessage, kp);
 
+	if (cds_is_driver_loaded() || cds_is_load_or_unload_in_progress()) {
+		pr_err("Driver already loaded or load/unload in progress");
+		return -ENOTSUPP;
+	}
+
 	if (con_mode_ftm != QDF_GLOBAL_FTM_MODE) {
 		pr_err("Only FTM mode supported!");
 		return -ENOTSUPP;
@@ -17944,6 +18038,7 @@ void hdd_clean_up_pre_cac_interface(struct hdd_context *hdd_ctx)
 	uint8_t vdev_id;
 	QDF_STATUS status;
 	struct hdd_adapter *precac_adapter;
+	struct sap_context *sap_ctx;
 
 	status = wlan_sap_get_pre_cac_vdev_id(hdd_ctx->mac_handle, &vdev_id);
 	if (QDF_IS_STATUS_ERROR(status)) {
@@ -17954,6 +18049,13 @@ void hdd_clean_up_pre_cac_interface(struct hdd_context *hdd_ctx)
 	precac_adapter = hdd_get_adapter_by_vdev(hdd_ctx, vdev_id);
 	if (!precac_adapter) {
 		hdd_err("invalid pre cac adapter");
+		return;
+	}
+
+	sap_ctx = WLAN_HDD_GET_SAP_CTX_PTR(precac_adapter);
+	if (wlan_sap_is_pre_cac_context(sap_ctx) &&
+	    hdd_ctx->sap_pre_cac_work.fn) {
+		hdd_debug("pre_cac_work already scheduled");
 		return;
 	}
 

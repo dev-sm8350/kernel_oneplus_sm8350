@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2020-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -125,8 +125,8 @@ static void pkt_capture_wdi_event_unsubscribe(struct wlan_objmgr_psoc *psoc)
 			    WDI_EVENT_PKT_CAPTURE_OFFLOAD_TX_DATA);
 
 	/* unsubscribe for rx data no peer packets */
-	cdp_wdi_event_sub(soc, pdev_id, &PKT_CAPTURE_RX_NO_PEER_SUBSCRIBER,
-			  WDI_EVENT_PKT_CAPTURE_RX_DATA_NO_PEER);
+	cdp_wdi_event_unsub(soc, pdev_id, &PKT_CAPTURE_RX_NO_PEER_SUBSCRIBER,
+			    WDI_EVENT_PKT_CAPTURE_RX_DATA_NO_PEER);
 
 	/* unsubscribing for rx data packets */
 	cdp_wdi_event_unsub(soc, pdev_id, &PKT_CAPTURE_RX_SUBSCRIBER,
@@ -292,8 +292,8 @@ pkt_capture_process_tx_data(void *soc, void *log_data, u_int16_t vdev_id,
 	/* nss not available */
 	pktcapture_hdr.nss = 0;
 	pktcapture_hdr.rssi_comb = tx_comp_status.ack_frame_rssi;
-	/* rate not available */
-	pktcapture_hdr.rate = 0;
+	/* update rate from available mcs */
+	pktcapture_hdr.rate = tx_comp_status.mcs;
 	pktcapture_hdr.stbc = tx_comp_status.stbc;
 	pktcapture_hdr.sgi = tx_comp_status.sgi;
 	pktcapture_hdr.ldpc = tx_comp_status.ldpc;

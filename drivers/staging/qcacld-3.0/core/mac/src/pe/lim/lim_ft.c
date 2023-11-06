@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -515,7 +516,7 @@ void lim_fill_ft_session(struct mac_context *mac,
 	tSchBeaconStruct *pBeaconStruct;
 	ePhyChanBondState cbEnabledMode;
 	struct vdev_mlme_obj *mlme_obj;
-	bool is_pwr_constraint;
+	bool is_pwr_constraint = false;
 
 	pBeaconStruct = qdf_mem_malloc(sizeof(tSchBeaconStruct));
 	if (!pBeaconStruct)
@@ -696,6 +697,8 @@ void lim_fill_ft_session(struct mac_context *mac,
 	if (is_pwr_constraint)
 		localPowerConstraint = regMax - localPowerConstraint;
 
+	mlme_obj->reg_tpc_obj.is_power_constraint_abs = !is_pwr_constraint;
+
 	ft_session->limReassocBssQosCaps =
 		ft_session->limCurrentBssQosCaps;
 
@@ -735,10 +738,8 @@ void lim_fill_ft_session(struct mac_context *mac,
 #ifdef WLAN_FEATURE_11W
 	ft_session->limRmfEnabled = pe_session->limRmfEnabled;
 #endif
-	if ((ft_session->limRFBand == REG_BAND_2G) &&
-		(ft_session->htSupportedChannelWidthSet ==
-		eHT_CHANNEL_WIDTH_40MHZ))
-		lim_init_obss_params(mac, ft_session);
+	/* Load default OBSS parameters to session entry */
+	lim_init_obss_params(mac, ft_session);
 
 	ft_session->enableHtSmps = pe_session->enableHtSmps;
 	ft_session->htSmpsvalue = pe_session->htSmpsvalue;
