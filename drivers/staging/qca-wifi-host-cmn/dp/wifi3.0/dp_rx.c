@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016-2020 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -643,7 +643,8 @@ dp_rx_intrabss_fwd(struct dp_soc *soc,
 				}
 			}
 
-			if (!dp_tx_send((struct cdp_soc_t *)soc,
+			if (!soc->is_tx_pause &&
+			    !dp_tx_send((struct cdp_soc_t *)soc,
 					ta_peer->vdev->vdev_id, nbuf)) {
 				DP_STATS_INC_PKT(ta_peer, rx.intra_bss.pkts, 1,
 						 len);
@@ -684,17 +685,18 @@ dp_rx_intrabss_fwd(struct dp_soc *soc,
 
 		/* Set cb->ftype to intrabss FWD */
 		qdf_nbuf_set_tx_ftype(nbuf_copy, CB_FTYPE_INTRABSS_FWD);
-		if (dp_tx_send((struct cdp_soc_t *)soc,
-			       ta_peer->vdev->vdev_id, nbuf_copy)) {
+
+		if (!soc->is_tx_pause && !dp_tx_send((struct cdp_soc_t *)soc,
+						     ta_peer->vdev->vdev_id,
+						     nbuf_copy)) {
+			DP_STATS_INC_PKT(ta_peer, rx.intra_bss.pkts, 1, len);
+			tid_stats->intrabss_cnt++;
+		} else {
 			DP_STATS_INC_PKT(ta_peer, rx.intra_bss.fail, 1, len);
 			tid_stats->fail_cnt[INTRABSS_DROP]++;
 			qdf_nbuf_free(nbuf_copy);
-		} else {
-			DP_STATS_INC_PKT(ta_peer, rx.intra_bss.pkts, 1, len);
-			tid_stats->intrabss_cnt++;
 		}
 	}
-
 end:
 	/* return false as we have to still send the original pkt
 	 * up the stack
@@ -2808,8 +2810,15 @@ done:
 		}
 
 		/* Get TID from struct cb->tid_val, save to tid */
-		if (qdf_nbuf_is_rx_chfrag_start(nbuf))
+		if (qdf_nbuf_is_rx_chfrag_start(nbuf)) {
 			tid = qdf_nbuf_get_tid_val(nbuf);
+			if (tid >= CDP_MAX_DATA_TIDS) {
+				DP_STATS_INC(soc, rx.err.rx_invalid_tid_err, 1);
+				qdf_nbuf_free(nbuf);
+				nbuf = next;
+				continue;
+			}
+		}
 
 		if (qdf_unlikely(!peer)) {
 			peer = dp_peer_get_ref_by_id(soc, peer_id,

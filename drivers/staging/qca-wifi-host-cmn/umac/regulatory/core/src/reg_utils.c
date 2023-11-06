@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2014-2020 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -38,6 +38,7 @@
 #include "reg_services_common.h"
 #include "reg_build_chan_list.h"
 #include "wlan_cm_bss_score_param.h"
+#include "wmi_unified_param.h"
 
 #define DEFAULT_WORLD_REGDMN 0x60
 
@@ -228,7 +229,11 @@ QDF_STATUS reg_set_country(struct wlan_objmgr_pdev *pdev,
 	reg_debug("programming new country: %s to firmware", country);
 
 	qdf_mem_copy(cc.country, country, REG_ALPHA2_LEN + 1);
-	cc.pdev_id = pdev_id;
+	/*
+	 * Need firmware to send channel list event
+	 * for all phys. Therefore set pdev_id to 0xFF.
+	 */
+	cc.pdev_id = WMI_HOST_PDEV_ID_SOC;
 
 	if (!psoc_reg->offload_enabled && !reg_is_world_alpha2(country)) {
 		QDF_STATUS status;
@@ -826,11 +831,18 @@ enum reg_6g_ap_type reg_decide_6g_ap_pwr_type(struct wlan_objmgr_pdev *pdev)
 		return REG_VERY_LOW_POWER_AP;
 	}
 
-	if (reg_is_afc_available(pdev))
+	if (reg_is_afc_available(pdev)) {
 		ap_pwr_type = REG_STANDARD_POWER_AP;
-	else if (pdev_priv_obj->reg_6g_superid != FCC1_6G &&
-		 pdev_priv_obj->reg_6g_superid != FCC1_6G_CL)
+	} else if (pdev_priv_obj->indoor_chan_enabled) {
+		if (pdev_priv_obj->reg_rules.num_of_6g_ap_reg_rules[REG_INDOOR_AP])
+			ap_pwr_type = REG_INDOOR_AP;
+		else
+			ap_pwr_type = REG_VERY_LOW_POWER_AP;
+	} else if (pdev_priv_obj->reg_rules.num_of_6g_ap_reg_rules[REG_VERY_LOW_POWER_AP]) {
 		ap_pwr_type = REG_VERY_LOW_POWER_AP;
+	}
+	reg_debug("indoor_chan_enabled %d ap_pwr_type %d",
+		  pdev_priv_obj->indoor_chan_enabled, ap_pwr_type);
 
 	reg_set_ap_pwr_and_update_chan_list(pdev, ap_pwr_type);
 
@@ -1084,9 +1096,9 @@ QDF_STATUS reg_set_curr_country(struct wlan_regulatory_psoc_priv_obj *soc_reg,
 
 	/*
 	 * Need firmware to send channel list event
-	 * for all phys. Therefore set pdev_id to 0xFF
+	 * for all phys. Therefore set pdev_id to 0xFF.
 	 */
-	pdev_id = 0xFF;
+	pdev_id = WMI_HOST_PDEV_ID_SOC;
 	for (phy_num = 0; phy_num < regulat_info->num_phy; phy_num++) {
 		if (soc_reg->cc_src == SOURCE_USERSPACE)
 			soc_reg->new_user_ctry_pending[phy_num] = true;
