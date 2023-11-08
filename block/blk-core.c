@@ -744,12 +744,15 @@ bool blk_attempt_plug_merge(struct request_queue *q, struct bio *bio,
 
 static void handle_bad_sector(struct bio *bio, sector_t maxsector)
 {
+	return;
+/*
 	char b[BDEVNAME_SIZE];
 
 	pr_info_ratelimited("attempt to access beyond end of device\n"
 			    "%s: rw=%d, want=%llu, limit=%llu\n",
 			    bio_devname(bio, b), bio->bi_opf,
 			    bio_end_sector(bio), maxsector);
+*/
 }
 
 #ifdef CONFIG_FAIL_MAKE_REQUEST
