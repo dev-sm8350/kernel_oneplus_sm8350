@@ -6021,6 +6021,7 @@ static int syna_tcm_sensitive_lv_set(void *chip_data, int level)
 	return 0;
 }
 
+#if 0
 static void syna_set_gesture_state(void *chip_data, int state)
 {
 	struct syna_tcm_data *tcm_info = (struct syna_tcm_data *)chip_data;
@@ -6047,6 +6048,7 @@ static void syna_set_gesture_state(void *chip_data, int state)
 	TPD_INFO("%s:state:%d, gesture_mask is 0x%0X!\n", __func__, state,
 		 tcm_info->gesture_mask);
 }
+#endif
 
 static int syna_tcm_send_temperature(void *chip_data, int temp, bool status)
 {
@@ -6136,7 +6138,9 @@ static struct oplus_touchpanel_operations syna_tcm_ops = {
 	.set_touch_direction		= syna_set_touch_direction,
 	.get_touch_direction		= syna_get_touch_direction,
 	.freq_hop_trigger		= syna_freq_hop_trigger,
+#if 0
 	.enable_gesture_mask		= syna_tcm_enable_gesture_mask,
+#endif
 	.speed_up_resume_prepare	= syna_resume_prepare,
 	.specific_resume_operate	= syna_specific_resume_operate,
 	.smooth_lv_set			= syna_tcm_smooth_lv_set,
@@ -6146,7 +6150,9 @@ static struct oplus_touchpanel_operations syna_tcm_ops = {
 	.screenon_fingerprint_info_auto	= syna_tcm_fingerprint_info_auto,
 	.tp_refresh_switch		= syna_report_refresh_switch,
 	.rate_white_list_ctrl		= syna_rate_white_list_ctrl,
+#if 0
 	.set_gesture_state         	= syna_set_gesture_state,
+#endif
 	.get_touch_points_help		= syna_get_touch_points_help,
 	.set_high_frame_rate            = syna_tcm_set_high_frame_rate,
 	.send_temperature		= syna_tcm_send_temperature,
