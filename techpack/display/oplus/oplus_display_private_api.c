@@ -149,11 +149,13 @@ bool is_dsi_panel(struct drm_crtc *crtc)
 		return false;
 	}
 
+/*
 	if (crtc != display->drm_conn->state->crtc) {
 		pr_err("failed to find dsi, panel name = %s display->panel->is_secondary = %d \n",
 		       display->panel->name, display->panel->is_secondary);
 		return false;
 	}
+*/
 
 	return true;
 }
