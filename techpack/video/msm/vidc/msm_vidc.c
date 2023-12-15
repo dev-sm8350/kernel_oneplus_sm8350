@@ -1656,8 +1656,6 @@ fail_bufq_capture:
 	DEINIT_MSM_VIDC_LIST(&inst->window_data);
 	DEINIT_MSM_VIDC_LIST(&inst->timestamps);
 
-err_invalid_sid:
-	put_sid(inst->sid);
 	kfree(inst);
 	inst = NULL;
 err_invalid_core:
