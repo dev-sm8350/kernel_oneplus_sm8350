@@ -1298,12 +1298,12 @@ static void __setscheduler_uclamp(struct task_struct *p,
 		if (uc_se->user_defined)
 			continue;
 
-		/* By default, RT tasks always get 25% boost */
+		/* By default, RT tasks always get 100% boost */
 		if (sched_feat(SUGOV_RT_MAX_FREQ) &&
 			       unlikely(rt_task(p) &&
 			       clamp_id == UCLAMP_MIN)) {
 
-			clamp_value = SCHED_CAPACITY_SCALE / 4;
+			clamp_value = uclamp_none(UCLAMP_MAX);
 		}
 
 		uclamp_se_set(uc_se, clamp_value, false);
