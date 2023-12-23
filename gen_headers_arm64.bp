@@ -1009,7 +1009,6 @@ gen_headers_out_arm64 = [
     "camera/media/cam_isp_sfe.h",
     "camera/media/cam_isp_tfe.h",
     "camera/media/cam_isp_vfe.h",
-    "camera/media/cam_isp_sfe.h",
     "camera/media/cam_jpeg.h",
     "camera/media/cam_lrme.h",
     "camera/media/cam_ope.h",
