@@ -524,6 +524,16 @@ config HISI_HIKEY_USB
 	help
 	  If you say yes here you get support for usb functionality of HiSilicon Hikey Platform.
 
+#ifdef OPLUS_FEATURE_RF_CABLE_DETECT
+config OPLUS_RF_CABLE_MONITOR
+        tristate "OPLUS rf cable monitor system"
+        depends on OF
+        select PINMUX
+        default n
+        help
+        Say Y here to enable OPLUS rf cable monitor system support
+#endif /* OPLUS_FEATURE_RF_CABLE_DETECT */
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

@@ -69,3 +69,10 @@ obj-$(CONFIG_HISI_HIKEY_USB)	+= hisi_hikey_usb.o
 obj-$(CONFIG_CS_F61_NDT)	+= cs_press/
 obj-y				+= tri_state_key/
 obj-$(CONFIG_AW8697_HAPTIC) += aw8697_haptic/
+
+#ifdef OPLUS_FEATURE_RF_CABLE_DETECT
+oplus_bsp_rfcablemonitor-y                      := oplus_rf_cable_monitor.o
+obj-$(CONFIG_OPLUS_RF_CABLE_MONITOR)    += oplus_bsp_rfcablemonitor.o
+oplus_bsp_ant_detect-y  := op_ant_detect.o
+obj-$(CONFIG_OPLUS_RF_CABLE_MONITOR)    += oplus_bsp_ant_detect.o
+#endif /* OPLUS_FEATURE_RF_CABLE_DETECT */
