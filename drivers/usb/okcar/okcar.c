@@ -59,13 +59,35 @@ static ssize_t device_read(struct file *file, char __user *user_buf, size_t coun
         int mode = okcar_usbmode_get();
         len = sizeof(int);
         copy_to_user(user_buf, &mode, len);
-    } else {
-        len = 0;
     }
-    
-    *offset += len;
     return len;
 }
+
+static loff_t device_llseek(struct file *file, loff_t offset, int whence)
+{
+    loff_t new_pos;
+
+    switch(whence) {
+        case 0: /* SEEK_START */
+            new_pos = offset;
+            break;
+
+        case 1: /* SEEK_CUR */
+            new_pos = file->f_pos + offset;
+            break;
+
+        case 2: /* SEEK_END */            
+        default: /* 不支持的whence */
+            return -EINVAL;
+    }
+
+    if (new_pos < 0 || new_pos > BUF_SIZE)
+        return -EINVAL;
+
+    file->f_pos = new_pos;
+    return new_pos;
+}
+
 
 static ssize_t device_write(struct file *file, const char __user *user_buf, size_t count, loff_t *offset)
 {
@@ -139,6 +161,7 @@ static struct file_operations fops = {
     .release = device_release,
     .read = device_read,
     .write = device_write,
+    .llseek = device_llseek,
 };
 
 static int __init okcar_init(void)
