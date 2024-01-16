@@ -74,9 +74,13 @@ struct acc_dev {
 	struct usb_endpoint_descriptor acc_highspeed_out_desc;
 	struct usb_endpoint_descriptor acc_fullspeed_in_desc;
 	struct usb_endpoint_descriptor acc_fullspeed_out_desc;
+	struct usb_endpoint_descriptor acc_superspeed_in_desc;
+	struct usb_endpoint_descriptor acc_superspeed_out_desc;
+
 	struct usb_endpoint_descriptor acc_intr_desc;
 	struct usb_descriptor_header *fs_acc_descs[5];
 	struct usb_descriptor_header *hs_acc_descs[5];
+	struct usb_descriptor_header *ss_acc_descs[5];
 	struct usb_string acc_string_defs[2];
 	struct usb_gadget_strings acc_string_table;
 	struct usb_gadget_strings *acc_strings[2];
@@ -319,6 +323,14 @@ __acc_function_bind(struct usb_configuration *c,
 			dev->acc_fullspeed_out_desc.bEndpointAddress;
 	}
 
+	/* support super speed hardware */
+	if (gadget_is_superspeed(c->cdev->gadget)) {
+		dev->acc_superspeed_in_desc.bEndpointAddress =
+			dev->acc_fullspeed_in_desc.bEndpointAddress;
+		dev->acc_superspeed_out_desc.bEndpointAddress =
+			dev->acc_fullspeed_out_desc.bEndpointAddress;
+	}
+
 	return 0;
 }
 
@@ -428,6 +440,7 @@ static struct usb_function *acc_alloc(struct usb_function_instance *fi)
 	dev->function.strings = dev->acc_strings,
 	dev->function.fs_descriptors = dev->fs_acc_descs;
 	dev->function.hs_descriptors = dev->hs_acc_descs;
+	dev->function.ss_descriptors = dev->ss_acc_descs;
 	dev->function.bind = acc_function_bind_configfs;
 	dev->function.unbind = acc_function_unbind;
 	dev->function.set_alt = acc_function_set_alt;
@@ -508,6 +521,18 @@ static struct usb_function_instance *acc_alloc_inst(void)
 	dev->acc_interface_desc.bInterfaceSubClass		= 1;
 	dev->acc_interface_desc.bInterfaceProtocol		= 1;
 
+	dev->acc_superspeed_in_desc.bLength				= USB_DT_ENDPOINT_SIZE;
+	dev->acc_superspeed_in_desc.bDescriptorType		= USB_DT_ENDPOINT;
+	dev->acc_superspeed_in_desc.bEndpointAddress		= USB_DIR_IN;
+	dev->acc_superspeed_in_desc.bmAttributes			= USB_ENDPOINT_XFER_BULK;
+	dev->acc_superspeed_in_desc.wMaxPacketSize		= __constant_cpu_to_le16(512);
+
+	dev->acc_superspeed_out_desc.bLength				= USB_DT_ENDPOINT_SIZE;
+	dev->acc_superspeed_out_desc.bDescriptorType		= USB_DT_ENDPOINT;
+	dev->acc_superspeed_out_desc.bEndpointAddress	= USB_DIR_OUT;
+	dev->acc_superspeed_out_desc.bmAttributes		= USB_ENDPOINT_XFER_BULK;
+	dev->acc_superspeed_out_desc.wMaxPacketSize		= __constant_cpu_to_le16(512);
+
 	dev->acc_highspeed_in_desc.bLength				= USB_DT_ENDPOINT_SIZE;
 	dev->acc_highspeed_in_desc.bDescriptorType		= USB_DT_ENDPOINT;
 	dev->acc_highspeed_in_desc.bEndpointAddress		= USB_DIR_IN;
@@ -548,6 +573,12 @@ static struct usb_function_instance *acc_alloc_inst(void)
 	dev->hs_acc_descs[2] = (struct usb_descriptor_header *) &(dev->acc_highspeed_in_desc);
 	dev->hs_acc_descs[3] = (struct usb_descriptor_header *) &(dev->acc_intr_desc);
 	dev->hs_acc_descs[4] = NULL;
+
+	dev->ss_acc_descs[0] = (struct usb_descriptor_header *) &(dev->acc_interface_desc);
+	dev->ss_acc_descs[1] = (struct usb_descriptor_header *) &(dev->acc_superspeed_out_desc);
+	dev->ss_acc_descs[2] = (struct usb_descriptor_header *) &(dev->acc_superspeed_in_desc);
+	dev->ss_acc_descs[3] = (struct usb_descriptor_header *) &(dev->acc_intr_desc);
+	dev->ss_acc_descs[4] = NULL;
 
 	dev->acc_string_defs[INTERFACE_STRING_INDEX].s  = "PTP";
 	dev->acc_string_defs[INTERFACE_STRING_INDEX].id = 0;
