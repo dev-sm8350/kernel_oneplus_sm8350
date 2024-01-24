@@ -217,7 +217,6 @@ struct dsi_panel_oplus_privite {
 	const char *vendor_name;
 	const char *manufacture_name;
 	bool skip_mipi_last_cmd;
-	bool is_pxlw_iris5;
 	struct oplus_brightness_alpha *bl_remap;
 	int bl_remap_count;
 	bool is_osc_support;
@@ -348,9 +347,6 @@ struct dsi_panel {
 
 	int panel_test_gpio;
 	int power_mode;
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-	bool is_secondary;
-#endif
 	enum dsi_panel_physical_type panel_type;
 
 	struct dsi_tlmm_gpio *tlmm_gpio;
