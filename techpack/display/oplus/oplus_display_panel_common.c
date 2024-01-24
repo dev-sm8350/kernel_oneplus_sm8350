@@ -909,58 +909,6 @@ unlock:
 	return rc;
 }
 
-int oplus_display_get_softiris_color_status(void *data)
-{
-	struct softiris_color *iris_color_status = data;
-	bool color_vivid_status = false;
-	bool color_srgb_status = false;
-	bool color_softiris_status = false;
-	bool color_dual_panel_status = false;
-	bool color_dual_brightness_status = false;
-	struct dsi_parser_utils *utils = NULL;
-	struct dsi_panel *panel = NULL;
-
-	struct dsi_display *display = get_main_display();
-	if (!display) {
-		pr_err("failed for: %s %d\n", __func__, __LINE__);
-		return -EINVAL;
-	}
-
-	panel = display->panel;
-	if (!panel) {
-		pr_err("failed for: %s %d\n", __func__, __LINE__);
-		return -EINVAL;
-	}
-
-	utils = &panel->utils;
-	if (!utils) {
-		pr_err("failed for: %s %d\n", __func__, __LINE__);
-		return -EINVAL;
-	}
-
-	color_vivid_status = utils->read_bool(utils->data, "oplus,color_vivid_status");
-	DSI_INFO("oplus,color_vivid_status: %s", color_vivid_status ? "true" : "false");
-
-	color_srgb_status = utils->read_bool(utils->data, "oplus,color_srgb_status");
-	DSI_INFO("oplus,color_srgb_status: %s", color_srgb_status ? "true" : "false");
-
-	color_softiris_status = utils->read_bool(utils->data, "oplus,color_softiris_status");
-	DSI_INFO("oplus,color_softiris_status: %s", color_softiris_status ? "true" : "false");
-
-	color_dual_panel_status = utils->read_bool(utils->data, "oplus,color_dual_panel_status");
-	DSI_INFO("oplus,color_dual_panel_status: %s", color_dual_panel_status ? "true" : "false");
-
-	color_dual_brightness_status = utils->read_bool(utils->data, "oplus,color_dual_brightness_status");
-	DSI_INFO("oplus,color_dual_brightness_status: %s", color_dual_brightness_status ? "true" : "false");
-
-	iris_color_status->color_vivid_status = (uint32_t)color_vivid_status;
-	iris_color_status->color_srgb_status = (uint32_t)color_srgb_status;
-	iris_color_status->color_softiris_status = (uint32_t)color_softiris_status;
-	iris_color_status->color_dual_panel_status = (uint32_t)color_dual_panel_status;
-	iris_color_status->color_dual_brightness_status = (uint32_t)color_dual_brightness_status;
-	return 0;
-}
-
 int oplus_display_panel_get_id2(void)
 {
 	struct dsi_display *display = get_main_display();
