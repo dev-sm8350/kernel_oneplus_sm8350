@@ -51,15 +51,6 @@ extern int lcd_closebl_flag_fp;
 extern bool oplus_ffl_trigger_finish;
 #endif
 
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-#include "iris/dsi_iris5_api.h"
-#include "iris/dsi_iris5_lightup.h"
-#include "iris/dsi_iris5_loop_back.h"
-#include <video/mipi_display.h>
-#elif defined(OPLUS_FEATURE_PXLW_IRISSOFT)
-#include "iris/dsi_iris5_api.h"
-#endif
-
 #define to_dsi_display(x) container_of(x, struct dsi_display, host)
 #define INT_BASE_10 10
 
@@ -786,13 +777,6 @@ int dsi_host_alloc_cmd_tx_buffer(struct dsi_display *display)
 	int rc = 0, cnt = 0;
 	struct dsi_display_ctrl *display_ctrl;
 
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-	if (iris_is_chip_supported()) {
-		display->tx_cmd_buf = msm_gem_new(display->drm_dev,
-			SZ_256K,
-			MSM_BO_UNCACHED);
-	} else
-#endif
 	display->tx_cmd_buf = msm_gem_new(display->drm_dev,
 			SZ_4K,
 			MSM_BO_UNCACHED);
@@ -804,10 +788,6 @@ int dsi_host_alloc_cmd_tx_buffer(struct dsi_display *display)
 	}
 
 	display->cmd_buffer_size = SZ_4K;
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-	if (iris_is_chip_supported())
-		display->cmd_buffer_size = SZ_256K;
-#endif
 
 	display->aspace = msm_gem_smmu_address_space_get(
 			display->drm_dev, MSM_SMMU_DOMAIN_UNSECURE);
@@ -848,10 +828,6 @@ int dsi_host_alloc_cmd_tx_buffer(struct dsi_display *display)
 	display_for_each_ctrl(cnt, display) {
 		display_ctrl = &display->ctrl[cnt];
 		display_ctrl->ctrl->cmd_buffer_size = SZ_4K;
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-		if (iris_is_chip_supported())
-			display_ctrl->ctrl->cmd_buffer_size = SZ_256K;
-#endif
 		display_ctrl->ctrl->cmd_buffer_iova =
 					display->cmd_buffer_iova;
 		display_ctrl->ctrl->vaddr = display->vaddr;
@@ -1039,13 +1015,6 @@ static int dsi_display_validate_status(struct dsi_display_ctrl *ctrl,
 {
 	int rc = 0;
 
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-	if (iris_is_chip_supported()) {
-		rc = iris_read_status(ctrl, panel);
-		if (rc == 2)
-			rc = dsi_display_read_status(ctrl, panel);
-	} else
-#endif
 		rc = dsi_display_read_status(ctrl, panel);
 	if (rc <= 0) {
 		goto exit;
@@ -1311,14 +1280,6 @@ static int dsi_display_ctrl_get_host_init_state(struct dsi_display *dsi_display,
 	}
 	return rc;
 }
-
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-int iris_dsi_display_ctrl_get_host_init_state(struct dsi_display *dsi_display,
-		bool *state)
-{
-	return dsi_display_ctrl_get_host_init_state(dsi_display, state);
-}
-#endif
 
 static int dsi_display_cmd_rx(struct dsi_display *display,
 			      struct dsi_cmd_desc *cmd)
@@ -2426,9 +2387,6 @@ static int dsi_display_debugfs_init(struct dsi_display *display)
 		       display->name);
 		goto error_remove_dir;
 	}
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-	iris_dsi_display_debugfs_init(display, dir, dump_file);
-#endif
 
 	display->root = dir;
 	dsi_parser_dbg_init(display->parser, dir);
@@ -3812,25 +3770,12 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 				msg->flags & MIPI_DSI_MSG_ASYNC_OVERRIDE)
 			cmd_flags |= DSI_CTRL_CMD_ASYNC_WAIT;
 
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-		if (iris_is_chip_supported()) {
-			if (msg->rx_buf && msg->rx_len)
-				cmd_flags |= DSI_CTRL_CMD_READ;
-		}
-#endif
-
 		if ((msg->flags & MIPI_DSI_MSG_CMD_DMA_SCHED) &&
 				(display->enabled))
 			cmd_flags |= DSI_CTRL_CMD_CUSTOM_DMA_SCHED;
 
 		rc = dsi_ctrl_cmd_transfer(display->ctrl[ctrl_idx].ctrl, msg,
 				&cmd_flags);
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-		if (iris_is_chip_supported()) {
-			if (rc > 0)
-				rc = 0;
-		}
-#endif
 		if (rc < 0) {
 			DSI_ERR("[%s] cmd transfer failed, rc=%d\n",
 			       display->name, rc);
@@ -4756,15 +4701,6 @@ static int dsi_display_res_init(struct dsi_display *display)
 		display->panel = NULL;
 		goto error_ctrl_put;
 	}
-
-#if defined(OPLUS_FEATURE_PXLW_IRIS5) || defined(OPLUS_FEATURE_PXLW_IRISSOFT)
-	// display->panel->ext_clk = devm_clk_get(&display->pdev->dev, "pw_bb_clk3");
-	// if (IS_ERR_OR_NULL(display->panel->ext_clk)) {
-	// 	rc = PTR_ERR(display->panel->ext_clk);
-	// 	DSI_ERR("failed to get %s, rc=%d\n", "pw_bb_clk3", rc);
-	// }
-	iris_dsi_display_res_init(display);
-#endif
 
 	display_for_each_ctrl(i, display) {
 		struct msm_dsi_phy *phy = display->ctrl[i].phy;
@@ -5925,10 +5861,6 @@ int dsi_display_cont_splash_config(void *dsi_display)
 		goto clk_manager_update;
 	}
 
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-	iris_control_pwr_regulator(true);
-#endif
-
 	mutex_unlock(&display->display_lock);
 
 	/* Set the current brightness level */
@@ -6322,10 +6254,6 @@ static int dsi_display_bind(struct device *dev,
 	}
 
 #endif
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-	/* register osd irq handler */
-	iris_register_osd_irq(display);
-#endif
 
 	goto error;
 
@@ -6495,64 +6423,6 @@ static void dsi_display_firmware_display(const struct firmware *fw,
 	DSI_DEBUG("success\n");
 }
 
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-static int dsi_display_parse_boot_display_selection_iris(struct platform_device *pdev)
-{
-	// Add secondary display.
-	int i;
-	struct device_node *node = NULL, *mdp_node = NULL;
-	const char *disp_name = NULL;
-	const char *disp_name_2nd = NULL;
-	bool display_name_2nd = false;
-
-	static const char * const disp_name_type[] = {
-		"pxlw,dsi-display-primary-active",
-		"pxlw,dsi-display-secondary-active"};
-	static const char * const disp_name_type_2nd[] = {
-		"pxlw,dsi-display-primary-2nd-active",
-		"pxlw,dsi-display-secondary-2nd-active"};
-
-	node = pdev->dev.of_node;
-	mdp_node = of_parse_phandle(node, "qcom,mdp", 0);
-	if (!mdp_node) {
-		DSI_ERR("mdp_node not found\n");
-		return -ENODEV;
-	}
-
-	for (i = 0; i < MAX_DSI_ACTIVE_DISPLAY; i++) {
-		DSI_INFO("IRIS_LOG I UEFI display[%d] name: %s\n", i, boot_displays[i].name);
-		of_property_read_string(mdp_node, disp_name_type[i], &disp_name);
-		of_property_read_string(mdp_node, disp_name_type_2nd[i], &disp_name_2nd);
-
-		if (disp_name || disp_name_2nd) {
-			if (i == 0) {
-				if (strstr(boot_displays[i].name, disp_name) == NULL
-					&& strstr(boot_displays[i].name, disp_name_2nd) == NULL)
-					break;
-				disp_name = NULL;
-				if (strstr(boot_displays[i].name, disp_name_2nd) == NULL)
-					display_name_2nd = false;
-				else
-					display_name_2nd = true;
-			} else {
-				DSI_INFO("IRIS_LOG I actual display[%d] name: %s\n", i, disp_name);
-				if (display_name_2nd)
-					strlcpy(boot_displays[i].name, disp_name_2nd,
-						MAX_CMDLINE_PARAM_LEN);
-				else
-					strlcpy(boot_displays[i].name, disp_name,
-						MAX_CMDLINE_PARAM_LEN);
-				boot_displays[i].boot_disp_en = true;
-				disp_name = NULL;
-			}
-		} else {
-			break;
-		}
-	}
-	return 0;
-}
-#endif
-
 int dsi_display_dev_probe(struct platform_device *pdev)
 {
 	struct dsi_display *display = NULL;
@@ -6603,10 +6473,6 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 
 	if (!strcmp(display->display_type, "secondary"))
 		index = DSI_SECONDARY;
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-	if (index == DSI_PRIMARY)
-		dsi_display_parse_boot_display_selection_iris(pdev);
-#endif
 
 	boot_disp = &boot_displays[index];
 	node = pdev->dev.of_node;
@@ -6686,9 +6552,6 @@ int dsi_display_dev_remove(struct platform_device *pdev)
 
 	display = platform_get_drvdata(pdev);
 
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-	iris_deinit(display);
-#endif
 
 	/* decrement ref count */
 	of_node_put(display->panel_node);
@@ -8639,9 +8502,6 @@ error_panel_post_unprep:
 error:
 	mutex_unlock(&display->display_lock);
 	SDE_EVT32(SDE_EVTLOG_FUNC_EXIT);
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-	iris_prepare(display);
-#endif
 	return rc;
 }
 
@@ -8970,16 +8830,6 @@ int dsi_display_enable(struct dsi_display *display)
 	if (is_skip_op_required(display)) {
 
 		dsi_display_config_ctrl_for_cont_splash(display);
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-		// if (display->panel->ext_clk) {
-		// 		DSI_DEBUG("clk enable\n");
-		// 		clk_prepare_enable(display->panel->ext_clk);
-		// 		usleep_range(5000, 5000);
-		// } else { // No need to control vdd and clk
-		// 		DSI_ERR("clk not prepare for iris5\n");
-		// }
-		iris_send_cont_splash(display);
-#endif
 
 		rc = dsi_display_splash_res_cleanup(display);
 		if (rc) {
@@ -9017,11 +8867,6 @@ int dsi_display_enable(struct dsi_display *display)
 			goto error;
 		}
 		/* add for set current display */
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-		if (iris_is_dual_supported() && display->panel->is_secondary) {
-			DSI_WARN("[%s] Don't add secondary display to current_display\n", display->name);
-		}else
-#endif
 		{
 			set_current_display(display);
 		}
@@ -9490,19 +9335,8 @@ EXPORT_SYMBOL(get_current_display);
 
 #endif
 
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-extern int iris_i2c_bus_init(void);
-extern void iris_i2c_bus_exit(void);
-extern int iris_i3c_bus_init(void);
-extern void iris_i3c_bus_exit(void);
-#endif
-
 void __init dsi_display_register(void)
 {
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-	iris_i3c_bus_init();
-	iris_i2c_bus_init();
-#endif
 	dsi_phy_drv_register();
 	dsi_ctrl_drv_register();
 
@@ -9516,10 +9350,6 @@ void __exit dsi_display_unregister(void)
 	platform_driver_unregister(&dsi_display_driver);
 	dsi_ctrl_drv_unregister();
 	dsi_phy_drv_unregister();
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-	iris_i2c_bus_exit();
-	iris_i3c_bus_exit();
-#endif
 }
 module_param_string(dsi_display0, dsi_display_primary, MAX_CMDLINE_PARAM_LEN,
 								0600);
