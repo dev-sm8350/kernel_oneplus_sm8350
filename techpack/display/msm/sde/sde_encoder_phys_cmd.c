@@ -10,9 +10,6 @@
 #include "sde_core_irq.h"
 #include "sde_formats.h"
 #include "sde_trace.h"
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-#include "iris/dsi_iris5_api.h"
-#endif
 
 #ifdef OPLUS_BUG_STABILITY
 #include "oplus_adfr.h"
@@ -41,14 +38,8 @@
 #define DEFAULT_TEARCHECK_SYNC_THRESH_CONTINUE	4
 
 #define SDE_ENC_WR_PTR_START_TIMEOUT_US 20000
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-/* decrease the polling time interval, reduce polling time */
-#define AUTOREFRESH_SEQ1_POLL_TIME      (iris_is_dual_supported() ? 1000 : 2000)
-#define AUTOREFRESH_SEQ2_POLL_TIME      (iris_is_dual_supported() ? 2000 : 25000)
-#else
 #define AUTOREFRESH_SEQ1_POLL_TIME	2000
 #define AUTOREFRESH_SEQ2_POLL_TIME	25000
-#endif
 #define AUTOREFRESH_SEQ2_POLL_TIMEOUT	1000000
 
 static inline int _sde_encoder_phys_cmd_get_idle_timeout(
@@ -82,12 +73,6 @@ static uint64_t _sde_encoder_phys_cmd_get_autorefresh_property(
 
 	if (!conn || !conn->state)
 		return 0;
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-	if (iris_is_chip_supported()) {
-		if (iris_secondary_display_autorefresh(phys_enc))
-			return 1;
-	}
-#endif
 
 	return sde_connector_get_property(conn->state,
 				CONNECTOR_PROP_AUTOREFRESH);
@@ -1921,15 +1906,7 @@ static void _sde_encoder_autorefresh_disable_seq1(
 	_sde_encoder_phys_cmd_config_autorefresh(phys_enc, 0);
 
 	do {
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-		if (iris_is_dual_supported())
-			usleep_range(AUTOREFRESH_SEQ1_POLL_TIME,
-				AUTOREFRESH_SEQ1_POLL_TIME + 1);
-		else
-			udelay(AUTOREFRESH_SEQ1_POLL_TIME);
-#else
 		udelay(AUTOREFRESH_SEQ1_POLL_TIME);
-#endif
 		if ((trial * AUTOREFRESH_SEQ1_POLL_TIME)
 				> (KICKOFF_TIMEOUT_MS * USEC_PER_MSEC)) {
 			SDE_ERROR_CMDENC(cmd_enc,
