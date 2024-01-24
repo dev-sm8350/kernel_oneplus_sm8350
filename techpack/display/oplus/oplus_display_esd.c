@@ -12,11 +12,6 @@
 
 #include "oplus_display_private_api.h"
 #include "oplus_display_esd.h"
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-#include "iris/dsi_iris5_api.h"
-#include "iris/dsi_iris5_lightup.h"
-#include "iris/dsi_iris5_loop_back.h"
-#endif
 
 #include <video/mipi_display.h>
 
@@ -263,56 +258,6 @@ static int oplus_mdss_dsi_samsung_amb670yf01_dsc_panel_check_esd_status(struct d
 	int rc = 0;
 	unsigned char register1[30] = {0};
 	unsigned char register2[30] = {0};
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-	struct dsi_cmd_desc cmds;
-	unsigned char payload;
-	struct dsi_display_ctrl *m_ctrl = &display->ctrl[display->cmd_master_idx];
-	struct dsi_panel *panel = display->panel;
-
-	if ((iris_is_chip_supported()) && (iris_is_pt_mode(panel))) {
-		rc = iris_get_status();
-		if (rc <= 0) {
-			DSI_ERR("Iris ESD snow screen error\n");
-			return -1;
-		}
-
-		memset(&cmds, 0x0, sizeof(cmds));
-		payload = 0x0A;
-		cmds.msg.type = 0x06;
-		cmds.msg.tx_buf = &payload;
-		cmds.msg.tx_len = 1;
-		cmds.msg.rx_buf = register1;
-		cmds.msg.rx_len = 1;
-		cmds.msg.flags |= MIPI_DSI_MSG_LASTCOMMAND;
-
-		rc = iris_panel_ctrl_read_reg(m_ctrl, panel, register1, 1, &cmds);
-		if (rc <= 0) {
-			DSI_ERR("iris_panel_ctrl_read_reg 1 failed, rc=%d\n", rc);
-			return rc;
-		}
-
-		memset(&cmds, 0x0, sizeof(cmds));
-		payload = 0xA2;
-		cmds.msg.type = 0x06;
-		cmds.msg.tx_buf = &payload;
-		cmds.msg.tx_len = 1;
-		cmds.msg.rx_buf = register2;
-		cmds.msg.rx_len = 1;
-		cmds.msg.flags |= MIPI_DSI_MSG_LASTCOMMAND;
-
-		rc = iris_panel_ctrl_read_reg(m_ctrl, panel, register2, 5, &cmds);
-		if (rc <= 0) {
-			DSI_ERR("iris_panel_ctrl_read_reg 1 failed, rc=%d\n", rc);
-			return rc;
-		}
-
-		if ((register1[0] != 0x9F && register1[0] != 0x9d) || (register2[0] != 0x11) || (register2[1] != 0x00)
-		|| (register2[2] != 0x00) || (register2[3] != 0xAB) || (register2[4] != 0x30)) {
-			esd_black_count++;
-			DSI_ERR("black_count=%d\n", esd_black_count);
-			DSI_ERR("0x0A = %02x, 0xA2 = %02x, %02x, %02x, %02x, %02x\n", register1[0],
-			  register2[0], register2[1], register2[2], register2[3], register2[4]);
-			rc = -1;
 #ifdef OPLUS_BUG_STABILITY
 			if (rc <= 0) {
 				char payload[200] = "";
@@ -325,13 +270,7 @@ static int oplus_mdss_dsi_samsung_amb670yf01_dsc_panel_check_esd_status(struct d
 				DSI_MM_ERR("ESD check failed: %s\n", payload);
 			}
 #endif  /*OPLUS_BUG_STABILITY*/
-		} else {
-			rc = 1;
-		}
-	} else {
-#else
 	{
-#endif
 		rc = oplus_display_read_panel_reg(display, 0x0A, register1, 1);
 		if (rc < 0)
 			return 0;
