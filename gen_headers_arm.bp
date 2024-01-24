@@ -1028,7 +1028,6 @@ gen_headers_out_arm = [
     "display/hdcp/msm_hdmi_hdcp_mgr.h",
     "vidc/media/msm_media_info.h",
     "vidc/media/msm_vidc_utils.h",
-    "display/drm/msm_drm_iris.h",
 ]
 
 genrule {

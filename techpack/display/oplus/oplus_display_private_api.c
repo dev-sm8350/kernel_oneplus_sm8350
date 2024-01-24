@@ -27,12 +27,6 @@
 /*#include "oplus_mm_kevent_fb.h"*/
 #include <soc/oplus/device_info.h>
 #include <soc/oplus/touchpanel_event_notify.h>
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-#include <video/mipi_display.h>
-#include "iris/dsi_iris5_api.h"
-#include "iris/dsi_iris5_lightup.h"
-#include "iris/dsi_iris5_loop_back.h"
-#endif
 #include "dsi_pwr.h"
 #include "oplus_display_panel.h"
 
@@ -46,7 +40,6 @@ int round_count_mode = 0;
 int lcd_closebl_flag = 0;
 int lcd_closebl_flag_fp = 0;
 int oplus_request_power_status = 0;/*0:unknown 1:off 2:on 3:doze 4:doze suspend 5:vr 6:on suspend*/
-int iris_recovery_check_state = -1;
 int dither_enable = 0;
 int backlight_smooth_enable = 1;
 
@@ -157,8 +150,7 @@ bool is_dsi_panel(struct drm_crtc *crtc)
 	}
 
 	if (crtc != display->drm_conn->state->crtc) {
-		pr_err("failed to find dsi, panel name = %s display->panel->is_secondary = %d \n",
-		       display->panel->name, display->panel->is_secondary);
+		pr_err("failed to find dsi, panel name = %s display->panel->is_secondary = %d \n");
 		return false;
 	}
 
@@ -724,19 +716,6 @@ static ssize_t oplus_display_get_dither(struct kobject *obj,
 	return sprintf(buf, "%d\n", dither_enable);
 }
 
-static ssize_t oplus_display_get_iris_state(struct kobject *obj,
-		struct kobj_attribute *attr, char *buf)
-{
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-	if (iris_is_chip_supported() && iris_loop_back_validate() == 0) {
-		iris_recovery_check_state = 0;
-	}
-	printk(KERN_INFO "oplus_display_get_iris_state = %d\n",
-		iris_recovery_check_state);
-#endif
-	return sprintf(buf, "%d\n", iris_recovery_check_state);
-}
-
 static ssize_t oplus_display_regulator_control(struct kobject *obj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
@@ -752,18 +731,8 @@ static ssize_t oplus_display_regulator_control(struct kobject *obj,
 	}
 	temp_display = get_main_display();
 	if (temp_save == 0) {
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-		if (iris_is_chip_supported()) {
-			iris_control_pwr_regulator(false);
-		}
-#endif
 		ret = dsi_pwr_enable_regulator(&temp_display->panel->power_info, false);
 	} else if (temp_save == 1) {
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-		if (iris_is_chip_supported()) {
-			iris_control_pwr_regulator(true);
-		}
-#endif
 		ret = dsi_pwr_enable_regulator(&temp_display->panel->power_info, true);
 	}
 	if (ret < 0) {
@@ -1707,11 +1676,6 @@ static int oplus_boe_data_dimming_process_unlock(int brightness, int enable)
 
 	if (!panel->is_hbm_enabled && oplus_datadimming_vblank_count != 0) {
 		drm_crtc_wait_one_vblank(dsi_connector->state->crtc);
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-	if (iris_is_chip_supported() && iris_is_pt_mode(panel))
-		rc = iris_update_backlight(1, brightness);
-	else
-#endif
 		rc = mipi_dsi_dcs_set_display_brightness(mipi_device, brightness);
 		drm_crtc_wait_one_vblank(dsi_connector->state->crtc);
 	}
@@ -2705,15 +2669,6 @@ int dsi_display_oplus_set_power(struct drm_connector *connector,
 		return -EINVAL;
 	}
 
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-
-	if (iris_is_chip_supported() && NULL != display->display_type
-			&& !strcmp(display->display_type, "secondary")) {
-		return rc;
-	}
-
-#endif
-
 	pr_info("[%s] <%s> power_mode : %d\n", __func__, display->panel->oplus_priv.vendor_name, power_mode);
 #ifdef CONFIG_DRM_LCM_BRIGHTNESS_NOTIFY
 	/* MM.Display.LCD, 2021/10/19, add lcm power mode notify */
@@ -3163,8 +3118,6 @@ static OPLUS_ATTR(max_brightness, S_IRUGO | S_IWUSR,
 			oplus_display_get_max_brightness_show, oplus_display_set_max_brightness_store);
 static OPLUS_ATTR(ccd_check, S_IRUGO | S_IRUSR, oplus_display_get_ccd_check,
 			NULL);
-static OPLUS_ATTR(iris_rm_check, S_IRUGO | S_IWUSR,
-			oplus_display_get_iris_state, NULL);
 static OPLUS_ATTR(panel_pwr, S_IRUGO | S_IWUSR, oplus_display_get_panel_pwr,
 			oplus_display_set_panel_pwr);
 /*#ifdef OPLUS_BUG_STABILITY*/
@@ -3223,7 +3176,6 @@ static struct attribute *oplus_display_attrs[] = {
 	&oplus_attr_dynamic_osc_clock.attr,
 	&oplus_attr_max_brightness.attr,
 	&oplus_attr_ccd_check.attr,
-	&oplus_attr_iris_rm_check.attr,
 	&oplus_attr_panel_pwr.attr,
 #ifdef OPLUS_BUG_STABILITY
 	&oplus_attr_adfr_debug.attr,
