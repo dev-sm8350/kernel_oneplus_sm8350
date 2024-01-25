@@ -371,6 +371,8 @@ int nfc_i2c_dev_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		pr_err("nfc hw check failed ret %d\n", ret);
 	}
 
+	nfc_dev->nqx_info.info.chip_type = NFCC_SN100_B;
+
 	device_init_wakeup(&client->dev, true);
 	i2c_dev->irq_wake_up = false;
 	nfc_dev->is_ese_session_active = false;
