@@ -18,8 +18,8 @@
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/machine.h>
 #include <linux/iio/consumer.h>
-#include "../../../../../../kernel/msm-5.4/drivers/usb/typec/tcpc/inc/tcpci.h"
-#include "../../../../../../kernel/msm-5.4/drivers/usb/typec/tcpc/inc/tcpm.h"
+#include "../../../../drivers/usb/typec/tcpc/inc/tcpci.h"
+#include "../../../../drivers/usb/typec/tcpc/inc/tcpm.h"
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 #include <linux/rtc.h>
