@@ -17,8 +17,8 @@
 #include <linux/extcon-provider.h>
 #include <linux/usb/typec.h>
 #include <linux/qti_power_supply.h>
-#include "../../../../kernel/msm-5.4/drivers/power/supply/qcom/storm-watch.h"
-#include "../../../../kernel/msm-5.4/drivers/power/supply/qcom/battery.h"
+#include "../../drivers/power/supply/qcom/storm-watch.h"
+#include "../../drivers/power/supply/qcom/battery.h"
 #include <linux/iio/iio.h>
 #include <dt-bindings/iio/qti_power_supply_iio.h>
 #include <linux/nvmem-consumer.h>
