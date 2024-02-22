@@ -325,6 +325,14 @@ source "fs/nls/Kconfig"
 source "fs/dlm/Kconfig"
 source "fs/unicode/Kconfig"
 
+config BLOCK_RETARDS
+	bool "Enable blocking TikTok retards and derivatives"
+	default n
+	help
+	   This option allows you to block a set of apps/binaries (by name)
+	   from running on devices with your kernel installed. May be useful
+	   if your users are uneducated.
+
 endmenu
 
 config BLOCK_UNWANTED_FILES
