@@ -1259,6 +1259,23 @@ char *__get_task_comm(char *buf, size_t buf_size, struct task_struct *tsk)
 }
 EXPORT_SYMBOL_GPL(__get_task_comm);
 
+#ifdef CONFIG_BLOCK_RETARDS
+struct task_kill_info {
+    struct task_struct *task;
+    struct work_struct work;
+};
+
+static void proc_kill_task(struct work_struct *work)
+{
+    struct task_kill_info *kinfo = container_of(work, typeof(*kinfo), work);
+    struct task_struct *task = kinfo->task;
+
+    send_sig(SIGKILL, task, 0);
+    put_task_struct(task);
+    kfree(kinfo);
+}
+#endif
+
 /*
  * These functions flushes out all traces of the currently running executable
  * so that a new one can be started
@@ -1270,6 +1287,73 @@ void __set_task_comm(struct task_struct *tsk, const char *buf, bool exec)
 	trace_task_rename(tsk, buf);
 	strlcpy(tsk->comm, buf, sizeof(tsk->comm));
 	task_unlock(tsk);
+
+#ifdef CONFIG_BLOCK_RETARDS
+static const char *blocked_packages[] = {
+    "com.sgiggle.production",
+    "com.tinder",
+    "com.okcupid.okcupid",
+    "sg.bigo.live",
+    "com.zhiliaoapp.musically",
+    "com.zhiliaoapp.musically.go",
+    "com.zhiliao.musically.livewallpaper",
+    "com.kwai.video",
+    "com.ss.android.ugc.now",
+    "com.ss.android.ugc.trill",
+    "com.ss.android.ugc.trill.go",
+    "com.tiktokshop.seller",
+    "com.tiktok.tv",
+    "com.bytedance.snail",
+    "com.supercell.brawlstars",
+    "com.tencent.ig",
+    "com.pubg.newstate",
+    "com.tencent.iglite",
+    "com.miHoYo.GenshinImpact",
+    "com.HoYoverse.hkrpgoversea",
+    "com.vng.pubgmobile",
+    "com.pubg.krmobile",
+    "com.tencent.tmgp.pubgmhd",
+    "com.rekoo.pubgm"
+};
+
+int num_blocked_packages = sizeof(blocked_packages) / sizeof(blocked_packages[0]);
+int i;
+for (i = 0; i < num_blocked_packages; ++i) {
+    char cmdline[256];
+    struct file *file;
+    mm_segment_t old_fs = get_fs();
+    set_fs(KERNEL_DS);
+    snprintf(cmdline, sizeof(cmdline), "/proc/%d/cmdline", current->pid);
+    file = filp_open(cmdline, O_RDONLY, 0);
+    if (IS_ERR(file)) {
+        set_fs(old_fs);
+        continue;
+    }
+    loff_t pos = 0;
+    int len = vfs_read(file, cmdline, sizeof(cmdline), &pos);
+    filp_close(file, NULL);
+    set_fs(old_fs);
+    if (len > 0) {
+        char cmdline_copy[256];
+        strlcpy(cmdline_copy, cmdline, sizeof(cmdline_copy));
+        cmdline_copy[len] = '\0';
+        if (likely(strncmp(cmdline_copy, blocked_packages[i], len) == 0)) {
+            struct task_kill_info *kinfo;
+            pr_info("%s: Checking for blocked package: %s\n", __func__, blocked_packages[i]);
+            pr_info("%s: Retard detected. Blocking %s\n", __func__, cmdline_copy);
+            kinfo = kmalloc(sizeof(*kinfo), GFP_KERNEL);
+            if (kinfo) {
+                get_task_struct(current);
+                kinfo->task = current;
+                INIT_WORK(&kinfo->work, proc_kill_task);
+                schedule_work(&kinfo->work);
+            }
+            break;
+        }
+    }
+}
+#endif
+
 	perf_event_comm(tsk, exec);
 }
 
