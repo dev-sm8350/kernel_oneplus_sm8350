@@ -75,6 +75,12 @@ static void execprog_worker(struct work_struct *work)
 	while (kern_path(WAIT_FOR, LOOKUP_FOLLOW, &path))
 		msleep(DELAY_MS);
 
+	// Check for recovery and exit
+	if (kern_path("/init.recovery.qcom.rc", LOOKUP_FOLLOW, &path) == 0) {
+		pr_info("detected recovery mode, exiting\n");
+		goto out;
+	}
+
 	pr_info("saving binary to userspace\n");
 	file = file_open(SAVE_DST, O_CREAT | O_WRONLY | O_TRUNC, 0755);
 	if (file == NULL) {
@@ -90,7 +96,6 @@ static void execprog_worker(struct work_struct *work)
 	}
 
 	filp_close(file, NULL);
-	vfree(data);
 
 	do {
 		/*
@@ -110,6 +115,9 @@ static void execprog_worker(struct work_struct *work)
 			pr_info("execution finished\n");
 		i++;
 	} while (ret && i <= 100);
+
+out:
+	vfree(data);
 }
 
 static int __init execprog_init(void)
