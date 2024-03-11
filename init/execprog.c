@@ -22,7 +22,7 @@
 #include <linux/string.h>
 #include <linux/vmalloc.h>
 
-#include <linux/oem/boot_mode.h>
+#include <soc/oplus/system/boot_mode.h>
 
 #include "execprog.h"
 
@@ -37,6 +37,7 @@
 #define DELAY_MS 10
 #define SAVE_DST CONFIG_EXECPROG_DST
 #define WAIT_FOR CONFIG_EXECPROG_WAIT_FOR
+#define MSM_BOOT_MODE_NORMAL MSM_BOOT_MODE__NORMAL
 
 static struct delayed_work execprog_work;
 static unsigned char* data;
