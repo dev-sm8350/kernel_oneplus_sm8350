@@ -31,7 +31,8 @@
 #include <linux/kobject.h>
 #include <linux/ctype.h>
 
-#include <linux/oem/boot_mode.h>
+#include <soc/oplus/system/boot_mode.h>
+#define MSM_BOOT_MODE_NORMAL MSM_BOOT_MODE__NORMAL
 
 /* selinuxfs pseudo filesystem for exporting the security policy API.
    Based on the proc code and the fs/nfsd/nfsctl.c code. */
