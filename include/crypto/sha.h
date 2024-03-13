@@ -154,4 +154,14 @@ static inline void sha224_init(struct sha256_state *sctx)
 void sha224_update(struct sha256_state *sctx, const u8 *data, unsigned int len);
 void sha224_final(struct sha256_state *sctx, u8 *out);
 
+/*
+ * An implementation of SHA-1's compression function.  Don't use in new code!
+ * You shouldn't be using SHA-1, and even if you *have* to use SHA-1, this isn't
+ * the correct way to hash something with SHA-1 (use crypto_shash instead).
+ */
+#define SHA1_DIGEST_WORDS	(SHA1_DIGEST_SIZE / 4)
+#define SHA1_WORKSPACE_WORDS	16
+void sha_init(__u32 *buf);
+void sha_transform(__u32 *digest, const char *data, __u32 *W);
+
 #endif
