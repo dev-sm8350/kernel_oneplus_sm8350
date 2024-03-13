@@ -11,7 +11,6 @@
 #include <crypto/hash.h>
 #include <linux/module.h>
 #include <linux/random.h>
-#include <asm/archrandom.h>
 
 #include "lrng_definitions.h"
 #include "lrng_es_aux.h"
