@@ -1194,11 +1194,6 @@
 	status = "ok";
 };
 
-&pm8350b_haptics {
-	status = "ok";
-	qcom,disable-pm-ops;
-};
-
 &ibat_lvl0 {
 	temperature = <7500>;
 	hysteresis = <200>;
