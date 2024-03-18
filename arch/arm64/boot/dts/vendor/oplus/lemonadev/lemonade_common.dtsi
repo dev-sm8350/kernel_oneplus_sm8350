@@ -306,6 +306,18 @@
 	status = "disabled";
 };
 //#endif /* OPLUS_FEATURE_TP_BASIC */
+
+&pm8350b_haptics {
+        status = "ok";
+	qcom,vmax-mv = <1280>;
+	qcom,cl-vmax-mv = <1280>;
+	qcom,lra-period-us = <5882>;
+	qcom,fifo-vmax-mv = <9100>;
+	qcom,old-steady-vmax-mv = <9100>;
+	qcom,cal-data-restore;
+        qcom,disable-pm-ops;
+};
+
 &tlmm {
     //#ifdef OPLUS_FEATURE_FINGERPRINT
 	oplus_fp_common{
