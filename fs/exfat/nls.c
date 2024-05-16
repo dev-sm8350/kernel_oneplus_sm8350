@@ -7,9 +7,6 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/buffer_head.h>
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 18, 0)
-#include <linux/vmalloc.h>
-#endif
 #include <asm/unaligned.h>
 
 #include "exfat_raw.h"
@@ -659,15 +656,10 @@ static int exfat_load_upcase_table(struct super_block *sb,
 	unsigned int sect_size = sb->s_blocksize;
 	unsigned int i, index = 0;
 	u32 chksum = 0;
-	int ret;
 	unsigned char skip = false;
 	unsigned short *upcase_table;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
 	upcase_table = kvcalloc(UTBL_COUNT, sizeof(unsigned short), GFP_KERNEL);
-#else
-	upcase_table = vzalloc(UTBL_COUNT * sizeof(unsigned short));
-#endif
 	if (!upcase_table)
 		return -ENOMEM;
 
@@ -681,8 +673,7 @@ static int exfat_load_upcase_table(struct super_block *sb,
 		if (!bh) {
 			exfat_err(sb, "failed to read sector(0x%llx)",
 				  (unsigned long long)sector);
-			ret = -EIO;
-			goto free_table;
+			return -EIO;
 		}
 		sector++;
 		for (i = 0; i < sect_size && index <= 0xFFFF; i += 2) {
@@ -709,25 +700,18 @@ static int exfat_load_upcase_table(struct super_block *sb,
 
 	exfat_err(sb, "failed to load upcase table (idx : 0x%08x, chksum : 0x%08x, utbl_chksum : 0x%08x)",
 		  index, chksum, utbl_checksum);
-	ret = -EINVAL;
-free_table:
-	exfat_free_upcase_table(sbi);
-	return ret;
+	return -EINVAL;
 }
 
 static int exfat_load_default_upcase_table(struct super_block *sb)
 {
-	int i, ret = -EIO;
+	int i;
 	struct exfat_sb_info *sbi = EXFAT_SB(sb);
 	unsigned char skip = false;
 	unsigned short uni = 0, *upcase_table;
 	unsigned int index = 0;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
 	upcase_table = kvcalloc(UTBL_COUNT, sizeof(unsigned short), GFP_KERNEL);
-#else
-	upcase_table = vzalloc(UTBL_COUNT * sizeof(unsigned short));
-#endif
 	if (!upcase_table)
 		return -ENOMEM;
 
@@ -752,8 +736,7 @@ static int exfat_load_default_upcase_table(struct super_block *sb)
 		return 0;
 
 	/* FATAL error: default upcase table has error */
-	exfat_free_upcase_table(sbi);
-	return ret;
+	return -EIO;
 }
 
 int exfat_create_upcase_table(struct super_block *sb)
@@ -815,9 +798,5 @@ load_default:
 
 void exfat_free_upcase_table(struct exfat_sb_info *sbi)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
 	kvfree(sbi->vol_utbl);
-#else
-	vfree(sbi->vol_utbl);
-#endif
 }

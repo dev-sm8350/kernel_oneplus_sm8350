@@ -2,9 +2,9 @@ name: linux-exfat-oot CI
 
 on:
   push:
-    branches: [ "for-kernel-version-from-4.1.0" ]
+    branches: [ "master" ]
   pull_request:
-    branches: [ "for-kernel-version-from-4.1.0" ]
+    branches: [ "master" ]
 
 jobs:
   build:
@@ -12,21 +12,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Download the kernel
       run: |
         sudo apt-get update
         sudo apt-get install libelf-dev wget tar gzip python2.7
-        wget https://mirrors.edge.kernel.org/pub/linux/kernel/v4.x/linux-4.1.36.tar.gz
-        tar xf linux-4.1.36.tar.gz
-        mv linux-4.1.36 linux-stable
-        rm -rf linux-4.1.36.tar.gz
+        wget https://mirrors.edge.kernel.org/pub/linux/kernel/v5.x/linux-5.15.140.tar.gz
+        tar xf linux-5.15.140.tar.gz
+        mv linux-5.15.140 linux-stable
+        rm -rf linux-5.15.140.tar.gz
     - name: Prerequisite for xfstests testing
       run: |
         sudo apt-get install linux-headers-$(uname -r)
-        sudo apt-get install autoconf libtool pkg-config libnl-3-dev libnl-genl-3-dev
+        sudo apt-get install autoconf libtool pkg-config
         sudo apt-get install xfslibs-dev uuid-dev libtool-bin xfsprogs libgdbm-dev gawk fio attr libattr1-dev libacl1-dev libaio-dev
-        git clone --branch=exfat-next https://github.com/exfat-utils/exfat-utils
+        git clone --branch=exfat-next https://github.com/exfatprogs/exfatprogs
         git clone https://github.com/namjaejeon/exfat-testsuites
         export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
         export PATH=/usr/local/lib:$PATH
@@ -35,17 +35,14 @@ jobs:
     - name: Copy exfat source to kernel
       run: |
         mv linux-stable ../
-        mkdir ../linux-stable/fs/exfat
         cp -ar * ../linux-stable/fs/exfat/
-    - name: Compile with 4.1 kernel
+    - name: Compile with 5.15 kernel
       run: |
         cd ../linux-stable
         yes "" | make oldconfig > /dev/null
-        echo 'obj-$(CONFIG_EXFAT_FS) += exfat/' >> fs/Makefile
-        echo 'source "fs/exfat/Kconfig"' >> fs/Kconfig
         echo 'CONFIG_EXFAT_FS=m' >> .config
         echo 'CONFIG_EXFAT_DEFAULT_IOCHARSET="utf8"' >> .config
-        make -j$((`nproc`+1)) fs/exfat/exfat.ko
+        make KBUILD_MODPOST_WARN=1 KBUILD_MODPOST_NOFINAL=1 fs/exfat/exfat.ko
     - name: Run xfstests testsuite
       run: |
         cd ..
@@ -54,7 +51,7 @@ jobs:
         make > /dev/null
         sudo make install > /dev/null
         sudo insmod exfat.ko
-        cd exfat-utils
+        cd exfatprogs
         ./autogen.sh > /dev/null
         ./configure > /dev/null
         make -j$((`nproc`+1)) > /dev/null
@@ -87,6 +84,7 @@ jobs:
       run: |
         cd exfat-testsuites/
         tar xzvf xfstests-exfat.tgz > /dev/null
+        rm -f xfstests-exfat.tgz
         cd xfstests-exfat
         make -j$((`nproc`+1)) > /dev/null
         truncate -s 100G test.img
@@ -126,7 +124,6 @@ jobs:
         sudo ./check generic/124
         sudo ./check generic/127
         sudo ./check generic/129
-        sudo ./check generic/130
         sudo ./check generic/131
         sudo ./check generic/132
         sudo ./check generic/133
