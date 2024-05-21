@@ -12,12 +12,6 @@ config NETHUNTER_SUPPORT
 
 	select SYSVIPC
 
-	select MODULES
-
-	select MODULE_UNLOAD
-
-	select MODVERSIONS
-
 	select MMC
 
 	select BT
