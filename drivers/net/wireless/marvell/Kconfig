@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 config WLAN_VENDOR_MARVELL
 	bool "Marvell devices"
+	depends on NETHUNTER_SUPPORT
 	default y
 	---help---
 	  If you have a wireless card belonging to this class, say Y.
