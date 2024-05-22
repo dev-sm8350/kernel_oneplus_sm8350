@@ -32633,7 +32633,7 @@ static int msm_voice_source_tracking_get(struct snd_kcontrol *kcontrol,
 		memset(&FnnSourceTrackingData, 0, sizeof(struct fluence_nn_source_tracking_param));
 		ret = voc_get_fnn_source_tracking(&FnnSourceTrackingData);
 		if (ret) {
-			pr_err("%s: Error getting FNN ST Params, err=%d\n",
+			pr_debug("%s: Error getting FNN ST Params, err=%d\n",
 				__func__, ret);
 
 			ret = -EINVAL;
@@ -32645,7 +32645,7 @@ static int msm_voice_source_tracking_get(struct snd_kcontrol *kcontrol,
 		memset(&sourceTrackingData, 0, sizeof(struct source_tracking_param));
 		ret = voc_get_source_tracking(&sourceTrackingData);
 		if (ret) {
-			pr_err("%s: Error getting Source Tracking Params, err=%d\n",
+			pr_debug("%s: Error getting Source Tracking Params, err=%d\n",
 				__func__, ret);
 
 			ret = -EINVAL;
