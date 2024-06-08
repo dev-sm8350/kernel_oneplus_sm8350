@@ -107,6 +107,12 @@ static bool check_cpu_isolated(int cpu)
 }
 #endif
 
+bool lpm_sleep_disabled(void)
+{
+	return sleep_disabled;
+}
+EXPORT_SYMBOL(lpm_sleep_disabled);
+
 #ifdef CONFIG_MSM_PM
 /**
  * msm_cpuidle_get_deep_idle_latency - Get deep idle latency value
