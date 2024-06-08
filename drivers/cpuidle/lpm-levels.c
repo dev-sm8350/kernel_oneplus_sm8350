@@ -555,9 +555,6 @@ static inline bool lpm_disallowed(int cpu, struct lpm_cpu *pm_cpu)
 	if (is_reserved(cpu))
 		return true;
 
-	if (sleep_disabled)
-		return true;
-
 	bias_time = sched_lpm_disallowed_time(cpu);
 	if (bias_time) {
 		pm_cpu->bias = bias_time;
@@ -1287,7 +1284,7 @@ static int lpm_cpuidle_select(struct cpuidle_driver *drv,
 	if (duration <= TICK_NSEC)
 		*stop_tick = false;
 
-	if (!cpu)
+	if (!cpu || sleep_disabled)
 		return 0;
 
 	return cpu_power_select(dev, cpu, ktime_to_us(duration));
@@ -1352,6 +1349,11 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	const struct cpumask *cpumask = get_cpu_mask(dev->cpu);
 	ktime_t start = ktime_get();
 	int ret = -EBUSY;
+
+	if (sleep_disabled) {
+		cpu_do_idle();
+		return 0;
+	}
 
 	/* Read the timer from the CPU that is entering idle */
 	per_cpu(next_hrtimer, dev->cpu) = tick_nohz_get_next_hrtimer();
