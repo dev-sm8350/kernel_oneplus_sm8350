@@ -96,6 +96,7 @@ struct walt_cpu_load {
 	u64 ws;
 };
 
+unsigned long apply_dvfs_headroom(unsigned long util, int cpu, bool tapered);
 #ifdef CONFIG_SCHED_WALT
 #define DECLARE_BITMAP_ARRAY(name, nr, bits) \
 	unsigned long name[nr][BITS_TO_LONGS(bits)]
