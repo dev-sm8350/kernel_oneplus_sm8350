@@ -11919,29 +11919,25 @@ static void propagate_entity_cfs_rq(struct sched_entity *se) { }
 
 unsigned int sched_dvfs_headroom = 1280;
 
-unsigned long apply_dvfs_headroom(unsigned long util, int cpu, bool tapered)
+unsigned long apply_dvfs_headroom(unsigned long util, int cpu)
 {
-	if (tapered) {
-		unsigned long capacity = capacity_orig_of(cpu);
-		unsigned long headroom;
+	unsigned long capacity = capacity_orig_of(cpu);
+	unsigned long headroom;
 
-		if (util >= capacity)
-			return util;
+	if (util >= capacity)
+		return util;
 
-		/*
-		 * Taper the boosting at e top end as these are expensive and
-		 * we don't need that much of a big headroom as we approach max
-		 * capacity
-		 *
-		 */
-		headroom = (capacity - util);
-		/* formula: headroom * (1.X - 1) == headroom * 0.X */
-		headroom = headroom *
-			(sched_dvfs_headroom - SCHED_CAPACITY_SCALE) >> SCHED_CAPACITY_SHIFT;
-		return util + headroom;
-	}
-
-	return util * sched_dvfs_headroom >> SCHED_CAPACITY_SHIFT;
+	/*
+	 * Taper the boosting at the top end as these are expensive and
+	 * we don't need that much of a big headroom as we approach max
+	 * capacity
+	 *
+	 */
+	headroom = (capacity - util);
+	/* formula: headroom * (1.X - 1) == headroom * 0.X */
+	headroom = headroom *
+		(sched_dvfs_headroom - SCHED_CAPACITY_SCALE) >> SCHED_CAPACITY_SHIFT;
+	return util + headroom;
 }
 
 static void detach_entity_cfs_rq(struct sched_entity *se)
