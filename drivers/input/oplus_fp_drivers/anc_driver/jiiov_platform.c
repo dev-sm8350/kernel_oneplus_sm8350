@@ -25,23 +25,13 @@
 #include <linux/of_gpio.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
-//#include <linux/wakelock.h>
-#include "../include/wakelock.h"
+#include <linux/pm_wakeup.h>
 #include <linux/cdev.h>
 #include <net/sock.h>
 #include "jiiov_platform.h"
 #include <linux/init.h>
 #include <linux/types.h>
 #include <linux/netlink.h>
-
-//#define ANC_CONFIG_PM_WAKELOCKS 0
-
-
-#ifdef ANC_CONFIG_PM_WAKELOCKS
-#include <linux/pm_wakeup.h>
-#else
-#include "../include/wakelock.h"
-#endif
 
 #include "../include/oplus_fp_common.h"
 #include <linux/msm_drm_notify.h>
@@ -88,11 +78,7 @@ struct anc_data {
     struct pinctrl *fingerprint_pinctrl;
     struct pinctrl_state *pinctrl_state[ARRAY_SIZE(pctl_names)];
     struct regulator *vreg[ARRAY_SIZE(vreg_conf)];
-#ifdef ANC_CONFIG_PM_WAKELOCKS
-    struct wakeup_source fp_wakelock;
-#else
-    struct wake_lock fp_wakelock;
-#endif
+    struct wakeup_source *fp_wakelock;
     int pwr_gpio;
     int rst_gpio;
     struct mutex lock;
@@ -280,11 +266,7 @@ static inline int anc_opticalfp_tp_handler(struct fp_underscreen_info *tp_info)
     if(tp_info->touch_state == lasttouchmode){
         return rc;
     }
-#ifdef ANC_CONFIG_PM_WAKELOCKS
-    __pm_wakeup_event(&g_anc_data->fp_wakelock, msecs_to_jiffies(ANC_WAKELOCK_HOLD_TIME));
-#else
-    wake_lock_timeout(&g_anc_data->fp_wakelock, msecs_to_jiffies(ANC_WAKELOCK_HOLD_TIME));
-#endif
+    __pm_wakeup_event(g_anc_data->fp_wakelock, msecs_to_jiffies(ANC_WAKELOCK_HOLD_TIME));
     if (1 == tp_info->touch_state) {
         netlink_msg = (char)ANC_NETLINK_EVENT_TOUCH_DOWN;
         pr_info("[anc] Netlink touch down!");
@@ -737,11 +719,7 @@ static inline int anc_probe(anc_device_t *pdev)
     dev_info(dev, "%s, Enabling hardware\n", __func__);
     device_power_up(dev_data);
 
-#ifdef ANC_CONFIG_PM_WAKELOCKS
-    wakeup_source_init(&dev_data->fp_wakelock, "anc_fp_wakelock");
-#else
-    wake_lock_init(&dev_data->fp_wakelock, WAKE_LOCK_SUSPEND, "anc_fp_wakelock");
-#endif
+    g_anc_data->fp_wakelock = wakeup_source_register(NULL, "anc_fp_wakelock");
 
 #ifdef ANC_USE_NETLINK
     /* Register fb notifier callback */
@@ -784,11 +762,7 @@ static inline int anc_remove(anc_device_t *pdev)
 
     sysfs_remove_group(&pdev->dev.kobj, &attribute_group);
     mutex_destroy(&data->lock);
-#ifdef ANC_CONFIG_PM_WAKELOCKS
-    wakeup_source_trash(&data->fp_wakelock);
-#else
-    wake_lock_destroy(&data->fp_wakelock);
-#endif
+    wakeup_source_unregister(g_anc_data->fp_wakelock);
 #ifdef ANC_USE_NETLINK
     msm_drm_unregister_client(&data->notifier);
 #endif
