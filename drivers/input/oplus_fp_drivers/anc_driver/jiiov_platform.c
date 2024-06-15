@@ -45,7 +45,7 @@
 #define ANC_DEVICE_MAJOR        0    /* default to dynamic major */
 static int anc_major_num = ANC_DEVICE_MAJOR;
 
-#define ANC_WAKELOCK_HOLD_TIME  500  /* ms */
+#define ANC_WAKELOCK_HOLD_TIME  400  /* ms */
 
 typedef struct platform_device anc_device_t;
 typedef struct platform_driver anc_driver_t;
@@ -101,155 +101,127 @@ extern struct net init_net; // by default
 
 static inline int netlink_send_message(const char *p_buffer, uint16_t length)
 {
-    int ret = 0;
-    struct sk_buff *p_sk_buff = NULL;
-    struct nlmsghdr *p_nlmsghdr = NULL;
-
-    /* 创建sk_buff 空间 */
-    p_sk_buff = nlmsg_new(length, GFP_ATOMIC);
-    if(NULL == p_sk_buff)
-    {
-        pr_debug("netlink alloc failure\n", __func__);
-        return -1;
+    struct sk_buff *p_sk_buff = nlmsg_new(length, GFP_ATOMIC);
+    if (!p_sk_buff) {
+        pr_debug("netlink alloc failure\n");
+        return -ENOMEM;
     }
 
-    /* 设置netlink消息头部 */
-    p_nlmsghdr = nlmsg_put(p_sk_buff, 0, 0, NETLINK_ANC, length, 0);
-    if(NULL == p_nlmsghdr)
-    {
-        pr_debug("nlmsg_put failaure \n", __func__);
+    struct nlmsghdr *p_nlmsghdr = nlmsg_put(p_sk_buff, 0, 0, NETLINK_ANC, length, 0);
+    if (!p_nlmsghdr) {
+        pr_debug("nlmsg_put failure\n");
         nlmsg_free(p_sk_buff);
-        return -1;
+        return -ENOMEM;
     }
 
-    /* 拷贝数据发送 */
     memcpy(nlmsg_data(p_nlmsghdr), p_buffer, length);
-    ret = netlink_unicast(gp_netlink_sock, p_sk_buff, USER_PORT, MSG_DONTWAIT);
+    int ret = netlink_unicast(gp_netlink_sock, p_sk_buff, USER_PORT, MSG_DONTWAIT);
 
     return ret;
 }
 
 static inline int netlink_send_message_to_user(const char *p_buffer, size_t length)
 {
-    int ret = -1;
-
-    if ((NULL != p_buffer) && (length > 0))
-    {
+    if (p_buffer && length > 0) {
         pr_debug("send message to user: %d\n", *p_buffer);
-        ret = netlink_send_message(p_buffer, length);
+        return netlink_send_message(p_buffer, length);
     }
-
-    return ret;
+    return -EINVAL;
 }
 
 static inline void netlink_receive_message(struct sk_buff *p_sk_buffer)
 {
-    struct nlmsghdr *nlh = NULL;
-    char *p_user_message = NULL;
-
-
-    if (p_sk_buffer->len >= nlmsg_total_size(0))
-    {
-        nlh = nlmsg_hdr(p_sk_buffer);
-        p_user_message = NLMSG_DATA(nlh);
-        if(p_user_message)
-        {
-            pr_debug("received message:%s, length:%lu\n", p_user_message, strlen(p_user_message));
+    if (p_sk_buffer->len >= nlmsg_total_size(0)) {
+        struct nlmsghdr *nlh = nlmsg_hdr(p_sk_buffer);
+        char *p_user_message = NLMSG_DATA(nlh);
+        if (p_user_message) {
+            pr_debug("received message: %s, length: %lu\n", p_user_message, strlen(p_user_message));
             netlink_send_message_to_user(p_user_message, strlen(p_user_message));
         }
     }
 }
 
 static struct netlink_kernel_cfg g_netlink_kernel_config = {
-    .input  = netlink_receive_message, /* set recv callback */
+    .input = netlink_receive_message, // set recv callback
 };
 
 static inline int anc_netlink_init(void)
 {
-    /* create netlink socket */
-    gp_netlink_sock = (struct sock *)netlink_kernel_create(&init_net, NETLINK_ANC, &g_netlink_kernel_config);
-    if(NULL == gp_netlink_sock)
-    {
-        pr_debug("netlink_kernel_create error !\n", __func__);
-        return -1;
+    gp_netlink_sock = netlink_kernel_create(&init_net, NETLINK_ANC, &g_netlink_kernel_config);
+    if (!gp_netlink_sock) {
+        pr_debug("netlink_kernel_create error!\n");
+        return -ENOMEM;
     }
-    pr_debug("anc_netlink_init\n", __func__);
-
+    pr_debug("anc_netlink_init\n");
     return 0;
 }
 
 static inline void anc_netlink_exit(void)
 {
-    if (NULL != gp_netlink_sock)
-    {
-        netlink_kernel_release(gp_netlink_sock); /* release ..*/
+    if (gp_netlink_sock) {
+        netlink_kernel_release(gp_netlink_sock);
         gp_netlink_sock = NULL;
     }
-    pr_debug("anc_netlink_exit!\n", __func__);
+    pr_debug("anc_netlink_exit!\n");
 }
 
 static int vreg_setup(struct anc_data *data, const char *name, bool enable)
 {
-    size_t i;
-    int rc;
-    bool is_found = false;
-    struct regulator *vreg;
     struct device *dev = data->dev;
+    struct regulator *vreg;
+    size_t i;
+    int rc = 0;
 
     for (i = 0; i < ARRAY_SIZE(data->vreg); i++) {
-        const char *n = vreg_conf[i].name;
+        if (!strncmp(vreg_conf[i].name, name, strlen(vreg_conf[i].name))) {
+            vreg = data->vreg[i];
+            if (enable) {
+                if (!vreg) {
+                    vreg = regulator_get(dev, name);
+                    if (IS_ERR(vreg)) {
+                        dev_err(dev, "Unable to get %s\n", name);
+                        return PTR_ERR(vreg);
+                    }
+                    data->vreg[i] = vreg;
+                }
 
-        if (!strncmp(n, name, strlen(n))) {
-            is_found = true;
-            break;
-        }
-    }
+                if (regulator_count_voltages(vreg) > 0) {
+                    rc = regulator_set_voltage(vreg, vreg_conf[i].vmin, vreg_conf[i].vmax);
+                    if (rc) {
+                        dev_err(dev, "Unable to set voltage on %s: %d\n", name, rc);
+                        return rc;
+                    }
+                }
 
-    if (!is_found) {
-        dev_err(dev, "Regulator %s not found\n", name);
-        return -EINVAL;
-    }
+                rc = regulator_set_load(vreg, vreg_conf[i].ua_load);
+                if (rc) {
+                    dev_err(dev, "Unable to set current on %s: %d\n", name, rc);
+                    return rc;
+                }
 
-    vreg = data->vreg[i];
-    if (enable) {
-        if (!vreg) {
-            vreg = regulator_get(dev, name);
-            if (IS_ERR(vreg)) {
-                dev_err(dev, "Unable to get %s\n", name);
-                return PTR_ERR(vreg);
+                rc = regulator_enable(vreg);
+                if (rc) {
+                    dev_err(dev, "Error enabling %s: %d\n", name, rc);
+                    regulator_put(vreg);
+                    data->vreg[i] = NULL;
+                    return rc;
+                }
+            } else {
+                if (vreg) {
+                    if (regulator_is_enabled(vreg)) {
+                        regulator_disable(vreg);
+                        dev_info(dev, "Disabled %s\n", name);
+                    }
+                    regulator_put(vreg);
+                    data->vreg[i] = NULL;
+                }
             }
+            return rc;
         }
-
-        if (regulator_count_voltages(vreg) > 0) {
-            rc = regulator_set_voltage(vreg, vreg_conf[i].vmin, vreg_conf[i].vmax);
-            if (rc)
-                dev_err(dev, "Unable to set voltage on %s, %d\n", name, rc);
-        }
-
-        rc = regulator_set_load(vreg, vreg_conf[i].ua_load);
-        if (rc < 0)
-            dev_err(dev, "Unable to set current on %s, %d\n", name, rc);
-
-        rc = regulator_enable(vreg);
-        if (rc) {
-            dev_err(dev, "error enabling %s: %d\n", name, rc);
-            regulator_put(vreg);
-            vreg = NULL;
-        }
-        data->vreg[i] = vreg;
-    } else {
-        if (vreg) {
-            if (regulator_is_enabled(vreg)) {
-                regulator_disable(vreg);
-                dev_info(dev, "disabled %s\n", name);
-            }
-            regulator_put(vreg);
-            data->vreg[i] = NULL;
-        }
-        rc = 0;
     }
 
-    return rc;
+    dev_err(dev, "Regulator %s not found\n", name);
+    return -EINVAL;
 }
 
 /*-----------------------------------netlink-------------------------------*/
@@ -257,124 +229,103 @@ static int vreg_setup(struct anc_data *data, const char *name, bool enable)
 unsigned int lasttouchmode = 0;
 static inline int anc_opticalfp_tp_handler(struct fp_underscreen_info *tp_info)
 {
-    int rc = 0;
-    char netlink_msg = (char)ANC_NETLINK_EVENT_INVALID;
-
-    pr_info("[anc] %s\n", __func__);
-
-    g_anc_data->fp_tpinfo = *tp_info;
-    if(tp_info->touch_state == lasttouchmode){
-        return rc;
+    if (tp_info->touch_state == lasttouchmode) {
+        return 0;
     }
+
+    char netlink_msg = (tp_info->touch_state == 1) ? ANC_NETLINK_EVENT_TOUCH_DOWN : ANC_NETLINK_EVENT_TOUCH_UP;
     __pm_wakeup_event(g_anc_data->fp_wakelock, msecs_to_jiffies(ANC_WAKELOCK_HOLD_TIME));
-    if (1 == tp_info->touch_state) {
-        netlink_msg = (char)ANC_NETLINK_EVENT_TOUCH_DOWN;
-        pr_info("[anc] Netlink touch down!");
-        netlink_send_message_to_user(&netlink_msg, sizeof(netlink_msg));
-        lasttouchmode = tp_info->touch_state;
-    } else {
-        netlink_msg = (char)ANC_NETLINK_EVENT_TOUCH_UP;
-        pr_info("[anc] Netlink touch up!");
-        netlink_send_message_to_user(&netlink_msg, sizeof(netlink_msg));
-        lasttouchmode = tp_info->touch_state;
-    }
+    
+    netlink_send_message_to_user(&netlink_msg, sizeof(netlink_msg));
+    lasttouchmode = tp_info->touch_state;
 
-    return rc;
+    return 0;
 }
 
 static inline int anc_fb_state_chg_callback(struct notifier_block *nb,
         unsigned long val, void *data)
 {
-    struct anc_data *anc_data;
+    struct anc_data *anc_data = container_of(nb, struct anc_data, notifier);
     struct msm_drm_notifier *evdata = data;
-    unsigned int blank;
     char netlink_msg = (char)ANC_NETLINK_EVENT_INVALID;
-    int rc = 0;
-
-    pr_info("[anc] %s\n", __func__);
-
-    anc_data = container_of(nb, struct anc_data, notifier);
-
+    
     if (val == MSM_DRM_ONSCREENFINGERPRINT_EVENT) {
-        uint8_t op_mode = 0x0;
-        op_mode = *(uint8_t *)evdata->data;
-        pr_info("[anc] op_mode = %d\n", op_mode);
+        uint8_t op_mode = *(uint8_t *)evdata->data;
 
-        switch (op_mode) {
-            case ANC_UI_DISAPPREAR:
-                pr_info("[anc] UI disappear\n");
-                break;
-            case ANC_UI_READY:
-                pr_info("[anc] UI ready\n");
-                netlink_msg = ANC_NETLINK_EVENT_UI_READY;
-                netlink_send_message_to_user(&netlink_msg, sizeof(netlink_msg));
-                break;
-            default:
-                pr_err("[anc] Unknown MSM_DRM_ONSCREENFINGERPRINT_EVENT!\n");
-                break;
+        if (op_mode == ANC_UI_READY) {
+            netlink_msg = ANC_NETLINK_EVENT_UI_READY;
+            netlink_send_message_to_user(&netlink_msg, sizeof(netlink_msg));
+        } else if (op_mode != ANC_UI_DISAPPREAR) {
+            pr_err("[anc] Unknown MSM_DRM_ONSCREENFINGERPRINT_EVENT: %d\n", op_mode);
         }
-        return rc;
+        return NOTIFY_OK;
     }
 
-   if (evdata && evdata->data && (val == MSM_DRM_EARLY_EVENT_BLANK) && anc_data) {
-        blank = *(int *)(evdata->data);
-        switch (blank) {
-            case MSM_DRM_BLANK_POWERDOWN:
-                anc_data->fb_black = 1;
-                netlink_msg = ANC_NETLINK_EVENT_SCR_OFF;
-                pr_info("[anc] NET SCREEN OFF!\n");
-                netlink_send_message_to_user(&netlink_msg, sizeof(netlink_msg));
-                break;
-            case MSM_DRM_BLANK_UNBLANK:
-                anc_data->fb_black = 0;
-                netlink_msg = ANC_NETLINK_EVENT_SCR_ON;
-                pr_info("[anc] NET SCREEN ON!\n");
-                netlink_send_message_to_user(&netlink_msg, sizeof(netlink_msg));
-                break;
-            default:
-                pr_err("[anc] Unknown screen state!\n");
-                break;
+    if (val == MSM_DRM_EARLY_EVENT_BLANK && evdata && evdata->data) {
+        unsigned int blank = *(unsigned int *)(evdata->data);
+
+        if (blank == MSM_DRM_BLANK_POWERDOWN) {
+            anc_data->fb_black = 1;
+            netlink_msg = ANC_NETLINK_EVENT_SCR_OFF;
+            netlink_send_message_to_user(&netlink_msg, sizeof(netlink_msg));
+        } else if (blank == MSM_DRM_BLANK_UNBLANK) {
+            anc_data->fb_black = 0;
+            netlink_msg = ANC_NETLINK_EVENT_SCR_ON;
+            netlink_send_message_to_user(&netlink_msg, sizeof(netlink_msg));
+        } else {
+            pr_err("[anc] Unknown screen state: %d\n", blank);
         }
     }
+
     return NOTIFY_OK;
 }
-
 static struct notifier_block anc_noti_block = {
  .notifier_call = anc_fb_state_chg_callback,
+};
+
+static const struct {
+    const char *name;
+    ANC_NETLINK_EVENT_TYPE event;
+} netlink_event_map[] = {
+    {"test", ANC_NETLINK_EVENT_TEST},
+    {"irq", ANC_NETLINK_EVENT_IRQ},
+    {"screen_off", ANC_NETLINK_EVENT_SCR_OFF},
+    {"screen_on", ANC_NETLINK_EVENT_SCR_ON},
+    {"touch_down", ANC_NETLINK_EVENT_TOUCH_DOWN},
+    {"touch_up", ANC_NETLINK_EVENT_TOUCH_UP},
+    {"ui_ready", ANC_NETLINK_EVENT_UI_READY},
+    {"exit", ANC_NETLINK_EVENT_EXIT},
 };
 
 /**
  * sysfs node to forward netlink event
  */
 static inline ssize_t forward_netlink_event_set(struct device *p_dev,
-	struct device_attribute *p_attr, const char *p_buffer, size_t count)
+                                                struct device_attribute *p_attr, 
+                                                const char *p_buffer, 
+                                                size_t count)
 {
-    char netlink_msg = (char)ANC_NETLINK_EVENT_INVALID;
+    ANC_NETLINK_EVENT_TYPE netlink_msg = ANC_NETLINK_EVENT_INVALID;
+    size_t i;
 
     pr_info("forward netlink event: %s\n", p_buffer);
-    if (!strncmp(p_buffer, "test", strlen("test"))) {
-        netlink_msg = (char)ANC_NETLINK_EVENT_TEST;
-    } else if (!strncmp(p_buffer, "irq", strlen("irq"))) {
-        netlink_msg = (char)ANC_NETLINK_EVENT_IRQ;
-    } else if (!strncmp(p_buffer, "screen_off", strlen("screen_off"))) {
-        netlink_msg = (char)ANC_NETLINK_EVENT_SCR_OFF;
-    } else if (!strncmp(p_buffer, "screen_on", strlen("screen_on"))) {
-        netlink_msg = (char)ANC_NETLINK_EVENT_SCR_ON;
-    } else if (!strncmp(p_buffer, "touch_down", strlen("touch_down"))) {
-        netlink_msg = (char)ANC_NETLINK_EVENT_TOUCH_DOWN;
-    } else if (!strncmp(p_buffer, "touch_up", strlen("touch_up"))) {
-        netlink_msg = (char)ANC_NETLINK_EVENT_TOUCH_UP;
-    } else if (!strncmp(p_buffer, "ui_ready", strlen("ui_ready"))) {
-        netlink_msg = (char)ANC_NETLINK_EVENT_UI_READY;
-    } else if (!strncmp(p_buffer, "exit", strlen("exit"))) {
-        netlink_msg = (char)ANC_NETLINK_EVENT_EXIT;
-    } else {
-        pr_err("don't support the netlink evnet: %s\n", p_buffer);
+
+    for (i = 0; i < ARRAY_SIZE(netlink_event_map); i++) {
+        if (!strncmp(p_buffer, netlink_event_map[i].name, strlen(netlink_event_map[i].name))) {
+            netlink_msg = netlink_event_map[i].event;
+            break;
+        }
+    }
+
+    if (netlink_msg == ANC_NETLINK_EVENT_INVALID) {
+        pr_err("unsupported netlink event: %s\n", p_buffer);
         return -EINVAL;
     }
 
-    return netlink_send_message_to_user(&netlink_msg, sizeof(netlink_msg));
+    return netlink_send_message_to_user((const char *)&netlink_msg, sizeof(netlink_msg));
 }
+
+// Define the device attribute with write-only permissions
 static DEVICE_ATTR(netlink_event, S_IWUSR, NULL, forward_netlink_event_set);
 #endif
 /*-------------------------------------------------------------------------*/
@@ -515,14 +466,14 @@ static inline int anc_request_named_gpio(struct anc_data *data, const char *labe
     int rc = of_get_named_gpio(np, label, 0);
 
     if (rc < 0) {
-        dev_err(dev, "failed to get '%s'\n", label);
+        dev_err(dev, "Failed to get '%s'\n", label);
         return rc;
     }
     *gpio = rc;
 
     rc = devm_gpio_request(dev, *gpio, label);
     if (rc) {
-        dev_err(dev, "failed to request gpio %d\n", *gpio);
+        dev_err(dev, "Failed to request gpio %d\n", *gpio);
         return rc;
     }
     dev_info(dev, "%s %d\n", label, *gpio);
@@ -532,63 +483,56 @@ static inline int anc_request_named_gpio(struct anc_data *data, const char *labe
 
 static inline int anc_gpio_init(struct device *dev, struct anc_data *data)
 {
-    int rc = 0;
+    int rc;
     size_t i;
-
     struct device_node *np = dev->of_node;
+
     if (!np) {
-        dev_err(dev, "no of node found\n");
-        rc = -EINVAL;
-        goto exit;
+        dev_err(dev, "No OF node found\n");
+        return -EINVAL;
     }
 
-    if (of_property_read_bool(dev->of_node, "anc,enable-via-gpio")) {
-        dev_err(dev, "%s, Using GPIO Power \n", __func__);
+    if (of_property_read_bool(np, "anc,enable-via-gpio")) {
+        dev_info(dev, "Using GPIO power\n");
         anc_gpio_pwr_flag = 1;
     }
 
+    if ((rc = anc_request_named_gpio(data, "anc,gpio_rst", &data->rst_gpio)))
+        return rc;
 
-    rc = anc_request_named_gpio(data, "anc,gpio_rst", &data->rst_gpio);
-    if (rc)
-        goto exit;
+    if (anc_gpio_pwr_flag) {
+        if ((rc = anc_request_named_gpio(data, "anc,gpio_pwr", &data->pwr_gpio)))
+            return rc;
 
-    if (anc_gpio_pwr_flag == 1 ) {
-        rc = anc_request_named_gpio(data, "anc,gpio_pwr", &data->pwr_gpio);
-        if (rc)
-            goto exit;
-
-        rc = gpio_direction_output(data->pwr_gpio, 0);
-        if (rc)
-            goto exit;
+        if ((rc = gpio_direction_output(data->pwr_gpio, 0)))
+            return rc;
     }
 
     data->fingerprint_pinctrl = devm_pinctrl_get(dev);
     if (IS_ERR(data->fingerprint_pinctrl)) {
-        if (PTR_ERR(data->fingerprint_pinctrl) == -EPROBE_DEFER) {
-            dev_info(dev, "pinctrl not ready\n");
-            rc = -EPROBE_DEFER;
-            goto exit;
+        rc = PTR_ERR(data->fingerprint_pinctrl);
+        if (rc == -EPROBE_DEFER) {
+            dev_info(dev, "Pinctrl not ready\n");
+        } else {
+            dev_err(dev, "Target does not use pinctrl\n");
+            data->fingerprint_pinctrl = NULL;
+            rc = -EINVAL;
         }
-        dev_err(dev, "Target does not use pinctrl\n");
-        data->fingerprint_pinctrl = NULL;
-        rc = -EINVAL;
-        goto exit;
+        return rc;
     }
 
     for (i = 0; i < ARRAY_SIZE(data->pinctrl_state); i++) {
         const char *n = pctl_names[i];
         struct pinctrl_state *state = pinctrl_lookup_state(data->fingerprint_pinctrl, n);
         if (IS_ERR(state)) {
-            dev_err(dev, "cannot find '%s'\n", n);
-            rc = -EINVAL;
-            goto exit;
+            dev_err(dev, "Cannot find '%s'\n", n);
+            return -EINVAL;
         }
-        dev_info(dev, "found pin control %s\n", n);
+        dev_info(dev, "Found pin control %s\n", n);
         data->pinctrl_state[i] = state;
     }
 
-exit:
-    return rc;
+    return 0;
 }
 
 static inline int anc_open(struct inode *inode, struct file *filp)
@@ -654,9 +598,8 @@ static const struct file_operations anc_fops = {
 static inline int anc_probe(anc_device_t *pdev)
 {
     struct device *dev = &pdev->dev;
-    int rc = 0;
     struct anc_data *dev_data;
-    struct device *device_ptr;
+    int rc = 0;
 
     dev_info(dev, "Anc Probe\n");
 
@@ -664,22 +607,22 @@ static inline int anc_probe(anc_device_t *pdev)
     dev_data = devm_kzalloc(dev, sizeof(*dev_data), GFP_KERNEL);
     if (!dev_data) {
         dev_err(dev, "%s: Failed to allocate memory for device data\n", __func__);
-        rc = -ENOMEM;
-        goto device_data_err;
+        return -ENOMEM;
     }
 
     dev_data->dev = dev;
     g_anc_data = dev_data;
-
     platform_set_drvdata(pdev, dev_data);
 
+    // Create device class
     dev_data->dev_class = class_create(THIS_MODULE, ANC_DEVICE_NAME);
     if (IS_ERR(dev_data->dev_class)) {
-        dev_err(dev, "%s: class_create error\n", __func__);
-        rc = -ENODEV;
-        goto device_class_err;
+        dev_err(dev, "%s: Failed to create class\n", __func__);
+        rc = PTR_ERR(dev_data->dev_class);
+        goto free_dev_data;
     }
 
+    // Allocate or register char device region
     if (anc_major_num) {
         dev_data->dev_num = MKDEV(anc_major_num, 0);
         rc = register_chrdev_region(dev_data->dev_num, 1, ANC_DEVICE_NAME);
@@ -687,72 +630,79 @@ static inline int anc_probe(anc_device_t *pdev)
         rc = alloc_chrdev_region(&dev_data->dev_num, 0, 1, ANC_DEVICE_NAME);
         if (rc < 0) {
             dev_err(dev, "%s: Failed to allocate char device region\n", __func__);
-            goto device_region_err;
+            goto destroy_class;
         }
         anc_major_num = MAJOR(dev_data->dev_num);
         dev_info(dev, "%s: Major number of device = %d\n", __func__, anc_major_num);
     }
 
-    device_ptr = device_create(dev_data->dev_class, NULL, dev_data->dev_num, dev_data, ANC_DEVICE_NAME);
-    if (IS_ERR(device_ptr)) {
+    // Create device
+    if (IS_ERR(device_create(dev_data->dev_class, NULL, dev_data->dev_num, dev_data, ANC_DEVICE_NAME))) {
         dev_err(dev, "%s: Failed to create char device\n", __func__);
-        rc = -ENODEV;
-        goto device_create_err;
+        rc = PTR_ERR(device_create);
+        goto unregister_region;
     }
 
+    // Initialize character device
     cdev_init(&dev_data->cdev, &anc_fops);
     dev_data->cdev.owner = THIS_MODULE;
     rc = cdev_add(&dev_data->cdev, dev_data->dev_num, 1);
-    if (rc < 0) {
+    if (rc) {
         dev_err(dev, "%s: Failed to add char device\n", __func__);
-        goto cdev_add_err;
+        goto destroy_device;
     }
 
     mutex_init(&dev_data->lock);
 
+    // Initialize GPIOs
     rc = anc_gpio_init(dev, dev_data);
     if (rc) {
-        dev_err(dev, "%s: Failed to init gpio", __func__);
-        goto exit;
+        dev_err(dev, "%s: Failed to init GPIO\n", __func__);
+        goto del_cdev;
     }
 
-    dev_info(dev, "%s, Enabling hardware\n", __func__);
+    // Power up the device
+    dev_info(dev, "%s: Enabling hardware\n", __func__);
     device_power_up(dev_data);
 
     g_anc_data->fp_wakelock = wakeup_source_register(NULL, "anc_fp_wakelock");
 
 #ifdef ANC_USE_NETLINK
-    /* Register fb notifier callback */
+    // Register framebuffer notifier callback
     dev_data->notifier = anc_noti_block;
     rc = msm_drm_register_client(&dev_data->notifier);
     if (rc < 0) {
         dev_err(dev, "%s: Failed to register fb notifier client\n", __func__);
-        goto exit;
+        goto unregister_wakelock;
     }
 #endif
 
-    dev_info(dev, "%s: Create sysfs path = %s\n", __func__, (&dev->kobj)->name);
+    // Create sysfs group
     rc = sysfs_create_group(&dev->kobj, &attribute_group);
     if (rc) {
-        dev_err(dev, "%s: Could not create sysfs\n", __func__);
-        goto exit;
+        dev_err(dev, "%s: Failed to create sysfs group\n", __func__);
+        goto unregister_notifier;
     }
 
     dev_info(dev, "%s: Probe Success\n", __func__);
     return 0;
 
-exit:
-cdev_add_err:
+unregister_notifier:
+#ifdef ANC_USE_NETLINK
+    msm_drm_unregister_client(&dev_data->notifier);
+unregister_wakelock:
+#endif
+    wakeup_source_unregister(g_anc_data->fp_wakelock);
+del_cdev:
+    cdev_del(&dev_data->cdev);
+destroy_device:
     device_destroy(dev_data->dev_class, dev_data->dev_num);
-device_create_err:
+unregister_region:
     unregister_chrdev_region(dev_data->dev_num, 1);
-device_region_err:
+destroy_class:
     class_destroy(dev_data->dev_class);
-device_class_err:
+free_dev_data:
     devm_kfree(dev, dev_data);
-    dev_data = NULL;
-device_data_err:
-    dev_err(dev, "%s: Probe Failed, rc = %d\n", __func__, rc);
     return rc;
 }
 
