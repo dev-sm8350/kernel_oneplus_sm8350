@@ -195,9 +195,11 @@ struct walt_sched_cluster {
 	int			id;
 	/*
 	 * max_possible_freq = maximum supported by hardware
+	 * max_freq = max freq as per cpufreq limits
 	 */
 	unsigned int		cur_freq;
 	unsigned int		max_possible_freq;
+	unsigned int		max_freq;
 	u64			aggr_grp_load;
 };
 
@@ -2878,6 +2880,11 @@ static inline bool walt_want_remote_wakeup(void)
 static inline int cluster_first_cpu(struct walt_sched_cluster *cluster)
 {
 	return cpumask_first(&cluster->cpus);
+}
+
+static inline struct walt_sched_cluster *cpu_cluster(int cpu)
+{
+	return cpu_rq(cpu)->wrq.cluster;
 }
 
 struct walt_related_thread_group {

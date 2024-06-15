@@ -8974,6 +8974,8 @@ void init_max_cpu_capacity(struct max_cpu_capacity *mcc) {
 	mcc->cpu = -1;
 }
 
+extern void walt_update_cpu_capacity(int cpu, unsigned long *capacity);
+
 static void update_cpu_capacity(struct sched_domain *sd, int cpu)
 {
 	unsigned long capacity = arch_scale_cpu_capacity(cpu);
@@ -8983,6 +8985,7 @@ static void update_cpu_capacity(struct sched_domain *sd, int cpu)
 	capacity >>= SCHED_CAPACITY_SHIFT;
 
 	capacity = min(capacity, thermal_cap(cpu));
+	walt_update_cpu_capacity(cpu, &capacity);
 	cpu_rq(cpu)->cpu_capacity_orig = capacity;
 
 	capacity = scale_rt_capacity(cpu, capacity);
