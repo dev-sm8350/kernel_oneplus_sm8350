@@ -2436,6 +2436,8 @@ int cpufreq_get_policy(struct cpufreq_policy *policy, unsigned int cpu)
 }
 EXPORT_SYMBOL(cpufreq_get_policy);
 
+extern void walt_cpu_frequency_limits(struct cpufreq_policy *policy);
+
 /**
  * cpufreq_set_policy - Modify cpufreq policy parameters.
  * @policy: Policy object to modify.
@@ -2479,6 +2481,7 @@ static int cpufreq_set_policy(struct cpufreq_policy *policy,
 
 	policy->min = new_data.min;
 	policy->max = new_data.max;
+	walt_cpu_frequency_limits(policy);
 	trace_cpu_frequency_limits(policy);
 
 	arch_set_max_freq_scale(policy->cpus, policy->max);
