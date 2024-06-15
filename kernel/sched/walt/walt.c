@@ -9,8 +9,10 @@
 #include <linux/sched/stat.h>
 #include <trace/events/sched.h>
 #include "qc_vas.h"
+#include <linux/qcom-cpufreq-hw.h>
 
 #include <trace/events/sched.h>
+#include <trace/events/power.h>
 
 const char *task_event_names[] = {"PUT_PREV_TASK", "PICK_NEXT_TASK",
 				  "TASK_WAKE", "TASK_MIGRATE", "TASK_UPDATE",
@@ -795,11 +797,6 @@ static void update_rq_load_subtractions(int index, struct rq *rq,
 	rq->wrq.load_subs[index].subs +=  sub_load;
 	if (new_task)
 		rq->wrq.load_subs[index].new_subs += sub_load;
-}
-
-static inline struct walt_sched_cluster *cpu_cluster(int cpu)
-{
-	return cpu_rq(cpu)->wrq.cluster;
 }
 
 static void update_cluster_load_subtractions(struct task_struct *p,
@@ -2426,6 +2423,7 @@ static struct walt_sched_cluster *alloc_new_cluster(const struct cpumask *cpus)
 
 	INIT_LIST_HEAD(&cluster->list);
 	cluster->cur_freq		=	1;
+	cluster->max_freq		=	1;
 	cluster->max_possible_freq	=	1;
 
 	raw_spin_lock_init(&cluster->load_lock);
@@ -2649,7 +2647,7 @@ void walt_update_cluster_topology(void)
 			cluster->max_possible_freq = policy->cpuinfo.max_freq;
 			/*CPU run at its fmax at boot time*/
 			cluster->cur_freq = policy->cpuinfo.max_freq;
-
+			cluster->max_freq = policy->max;
 			for_each_cpu(i, &cluster->cpus)
 				cpumask_copy(&cpu_rq(i)->wrq.freq_domain_cpumask,
 					     policy->related_cpus);
@@ -3654,6 +3652,58 @@ static inline void irq_work_restrict_to_mig_clusters(cpumask_t *lock_cpus)
 			}
 		}
 	}
+}
+
+static void update_cpu_capacity_helper(int cpu)
+{
+	unsigned long fmax_capacity = arch_scale_cpu_capacity(cpu);
+	unsigned long thermal_pressure = arch_scale_thermal_pressure(cpu);
+	unsigned long thermal_cap, old;
+	struct walt_sched_cluster *cluster;
+	struct rq *rq = cpu_rq(cpu);
+
+	/*
+	 * thermal_pressure = cpu_scale - curr_cap_as_per_thermal.
+	 * so,
+	 * curr_cap_as_per_thermal = cpu_scale - thermal_pressure.
+	 */
+
+	thermal_cap = fmax_capacity - thermal_pressure;
+
+	cluster = cpu_cluster(cpu);
+	/* reduce the fmax_capacity under cpufreq constraints */
+	if (cluster->max_freq != cluster->max_possible_freq)
+		fmax_capacity = mult_frac(fmax_capacity, cluster->max_freq,
+					 cluster->max_possible_freq);
+
+	old = rq->cpu_capacity_orig;
+	rq->cpu_capacity_orig = min(fmax_capacity, thermal_cap);
+}
+
+/*
+ * The intention of this function is to update cpu_capacity_orig as well as
+ * (*capacity), otherwise we will end up capacity_of() > capacity_orig_of().
+ */
+void walt_update_cpu_capacity(int cpu, unsigned long *capacity)
+{
+	unsigned long rt_pressure = arch_scale_cpu_capacity(cpu) - *capacity;
+
+	update_cpu_capacity_helper(cpu);
+	*capacity = max((int)(cpu_rq(cpu)->cpu_capacity_orig - rt_pressure), 0);
+}
+
+void walt_cpu_frequency_limits(struct cpufreq_policy *policy)
+{
+	int cpu;
+
+	cpu_cluster(policy->cpu)->max_freq = policy->max;
+	for_each_cpu(cpu, policy->related_cpus)
+		update_cpu_capacity_helper(cpu);
+}
+
+void walt_update_thermal_stats(int cpu)
+{
+	update_cpu_capacity_helper(cpu);
 }
 
 /**
