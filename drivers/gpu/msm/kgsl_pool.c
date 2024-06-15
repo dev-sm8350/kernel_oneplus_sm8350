@@ -157,12 +157,11 @@ static unsigned long kgsl_pool_size_nonreserved(void)
 
 	for (i = 0; i < kgsl_num_pools; i++) {
 		struct kgsl_page_pool *pool = &kgsl_pools[i];
+		unsigned int page_count = atomic_read(&pool->page_count);
 
-		spin_lock(&pool->list_lock);
-		if (pool->page_count > pool->reserved_pages)
-			total += (pool->page_count - pool->reserved_pages) *
+		if (page_count > pool->reserved_pages)
+			total += (page_count - pool->reserved_pages) *
 					(1 << pool->pool_order);
-		spin_unlock(&pool->list_lock);
 	}
 
 	return total;
