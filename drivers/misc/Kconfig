@@ -549,7 +549,7 @@ config OEM_QMI
 
 #ifdef OPLUS_FEATURE_RF_CABLE_DETECT
 config OPLUS_RF_CABLE_MONITOR
-	tristate "OPLUS rf cable monitor system"
+	bool "OPLUS rf cable monitor system"
 	depends on OF
 	select PINMUX
 	default n
