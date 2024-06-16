@@ -101,13 +101,15 @@ extern struct net init_net; // by default
 
 static inline int netlink_send_message(const char *p_buffer, uint16_t length)
 {
+    struct nlmsghdr *p_nlmsghdr;
+    int ret;
     struct sk_buff *p_sk_buff = nlmsg_new(length, GFP_ATOMIC);
     if (!p_sk_buff) {
         pr_debug("netlink alloc failure\n");
         return -ENOMEM;
     }
 
-    struct nlmsghdr *p_nlmsghdr = nlmsg_put(p_sk_buff, 0, 0, NETLINK_ANC, length, 0);
+    p_nlmsghdr = nlmsg_put(p_sk_buff, 0, 0, NETLINK_ANC, length, 0);
     if (!p_nlmsghdr) {
         pr_debug("nlmsg_put failure\n");
         nlmsg_free(p_sk_buff);
@@ -115,7 +117,7 @@ static inline int netlink_send_message(const char *p_buffer, uint16_t length)
     }
 
     memcpy(nlmsg_data(p_nlmsghdr), p_buffer, length);
-    int ret = netlink_unicast(gp_netlink_sock, p_sk_buff, USER_PORT, MSG_DONTWAIT);
+    ret = netlink_unicast(gp_netlink_sock, p_sk_buff, USER_PORT, MSG_DONTWAIT);
 
     return ret;
 }
@@ -229,11 +231,13 @@ static int vreg_setup(struct anc_data *data, const char *name, bool enable)
 unsigned int lasttouchmode = 0;
 static inline int anc_opticalfp_tp_handler(struct fp_underscreen_info *tp_info)
 {
+    char netlink_msg;
+
     if (tp_info->touch_state == lasttouchmode) {
         return 0;
     }
 
-    char netlink_msg = (tp_info->touch_state == 1) ? ANC_NETLINK_EVENT_TOUCH_DOWN : ANC_NETLINK_EVENT_TOUCH_UP;
+    netlink_msg = (tp_info->touch_state == 1) ? ANC_NETLINK_EVENT_TOUCH_DOWN : ANC_NETLINK_EVENT_TOUCH_UP;
     __pm_wakeup_event(g_anc_data->fp_wakelock, msecs_to_jiffies(ANC_WAKELOCK_HOLD_TIME));
     
     netlink_send_message_to_user(&netlink_msg, sizeof(netlink_msg));
