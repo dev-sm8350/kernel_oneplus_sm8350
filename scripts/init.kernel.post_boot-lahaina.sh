@@ -268,5 +268,23 @@ echo 0 > /sys/class/scsi_host/host0/../../../clkscale_enable
 # Enable FUSE
 setprop persist.sys.fuse.passthrough.enable true
 
+# Extreme Efficiency-V2 (zh_eco)
+chmod 644 /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
+echo 1497600 > /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
+chmod 644 /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq
+echo 300000 > /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq
+chmod 644 /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+echo 1881600 > /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+chmod 644 /sys/devices/system/cpu/cpu4/cpufreq/scaling_min_freq
+echo 710400 > /sys/devices/system/cpu/cpu4/cpufreq/scaling_min_freq
+chmod 644 /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
+echo 2035200 > /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
+chmod 644 /sys/devices/system/cpu/cpu7/cpufreq/scaling_min_freq
+echo 844800 > /sys/devices/system/cpu/cpu7/cpufreq/scaling_min_freq
+chmod 644 /sys/class/kgsl/kgsl-3d0/max_pwrlevel
+echo 4 > /sys/class/kgsl/kgsl-3d0/max_pwrlevel
+chmod 644 /sys/class/kgsl/kgsl-3d0/max_gpuclk
+echo 608000000 > /sys/class/kgsl/kgsl-3d0/max_gpuclk
+
 # Re-enable SELinux
 echo "97" > /sys/fs/selinux/enforce
