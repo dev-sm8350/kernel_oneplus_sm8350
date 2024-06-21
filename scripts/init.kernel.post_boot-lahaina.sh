@@ -74,7 +74,6 @@ if ! mount | grep -q "$BIND" && [ ! -e /sbin/recovery ] && [ ! -e /dev/ep/.post_
     # Set swap size to half of MemTotal
     # Align by 4 MiB
     expr $MemKb / 2 '*' 1024 / 4194304 '*' 4194304 > /sys/block/zram0/disksize
-    echo 60 > /proc/sys/vm/swappiness
 
     mkswap /dev/block/zram0
     swapon /dev/block/zram0
