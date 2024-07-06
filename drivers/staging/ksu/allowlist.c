@@ -301,6 +301,10 @@ bool ksu_uid_should_umount(uid_t uid)
 	}
 	bool found = ksu_get_app_profile(&profile);
 	if (!found) {
+		// don't umount modules for system apps when no app profile found
+		if (uid <= 2000) {
+			return false;
+		}
 		// no app profile found, it must be non root app
 		return default_non_root_profile.umount_modules;
 	}
