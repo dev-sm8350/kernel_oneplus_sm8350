@@ -101,6 +101,10 @@
 
 #include "../../lib/kstrtox.h"
 
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs.h>
+#endif
+
 /* NOTE:
  *	Implementing inode permission operations in /proc is almost
  *	certainly an error.  Permission checks need to happen during
@@ -1744,6 +1748,11 @@ static int do_proc_readlink(struct path *path, char __user *buffer, int buflen)
 
 	if (len > buflen)
 		len = buflen;
+
+#ifdef CONFIG_KSU_SUSFS_SUS_PROC_FD_LINK
+	susfs_sus_proc_fd_link(pathname, len);
+#endif
+
 	if (copy_to_user(buffer, pathname, len))
 		len = -EFAULT;
  out:

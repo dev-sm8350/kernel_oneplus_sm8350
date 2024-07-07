@@ -8,6 +8,10 @@
 #include <linux/prefetch.h>
 #include "mount.h"
 
+#ifdef CONFIG_KSU_SUSFS
+#include "linux/susfs.h"
+#endif
+
 static int prepend(char **buffer, int *buflen, const char *str, int namelen)
 {
 	*buflen -= namelen;
@@ -311,6 +315,13 @@ char *simple_dname(struct dentry *dentry, char *buffer, int buflen)
 {
 	char *end = buffer + buflen;
 	/* these dentries are never renamed, so d_lock is not needed */
+#ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
+	char spoofed_name[SUSFS_MAX_LEN_MFD_NAME];
+	if (susfs_sus_memfd(2, (char*)dentry->d_name.name, spoofed_name) == 2) {
+		prepend(&end, &buflen, spoofed_name, strlen(spoofed_name)+1);
+		return end;
+	}
+#endif
 	if (prepend(&end, &buflen, " (deleted)", 11) ||
 	    prepend(&end, &buflen, dentry->d_name.name, dentry->d_name.len) ||
 	    prepend(&end, &buflen, "/", 1))  

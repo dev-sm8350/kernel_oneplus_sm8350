@@ -22,6 +22,10 @@
 #include <linux/compat.h>
 #include <linux/uaccess.h>
 
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs.h>
+#endif
+
 #include <asm/unaligned.h>
 
 /*
@@ -328,6 +332,11 @@ static int filldir64(struct dir_context *ctx, const char *name, int namlen,
 	prev_reclen = buf->prev_reclen;
 	if (prev_reclen && signal_pending(current))
 		return -EINTR;
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+		if (susfs_sus_ino_for_filldir64(ino)) {
+			return 0;
+		}
+#endif
 	dirent = buf->current_dir;
 	prev = (void __user *)dirent - prev_reclen;
 	if (!user_access_begin(prev, reclen + prev_reclen))
