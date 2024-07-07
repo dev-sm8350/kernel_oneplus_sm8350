@@ -16,4 +16,85 @@ config KSU_DEBUG
 	help
 	  Enable KernelSU debug mode.
 
+config KSU_SUSFS
+    bool "KernelSU addon - SUSFS"
+    depends on KSU
+    default y
+    help
+      Patch and Enable SUSFS to kernel with KernelSU
+
+config KSU_SUSFS_SUS_PATH
+    bool "Enable to hide suspicious path"
+    depends on KSU_SUSFS
+    default y
+    help
+      Allow hiding the existence of user-defined file/directory from various system calls
+
+config KSU_SUSFS_SUS_MOUNT
+    bool "Enable to hide suspicious mounts"
+    depends on KSU_SUSFS
+    default y
+    help
+      Allow hiding the user-defined mount paths from /proc/self/[mounts|mountinfo|mountstat]
+
+config KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
+    bool "Enable to re-order mount id and parent mount id in mountinfo (experimental)"
+    depends on KSU_SUSFS_SUS_MOUNT
+    default y
+    help
+      - Enable this option will automatically re-order the mount id and parent mount id in /proc/self/mountinfo as much as it can according to the list of sus_mount.
+      - Only mount paths added to sus_mount will be counted, because we are not able to get the mount id of sus mounts umounted by user during enumerating the current mount list.
+      - Also be careful this feature may cause unknown system crashes/random reboot/bootloop, further testing is needed on other kernels and devices.
+      - Required KSU_SUSFS_SUS_MOUNT to be ON
+
+config KSU_SUSFS_SUS_KSTAT
+    bool "Enable to spoof suspicious kstat"
+    depends on KSU_SUSFS
+    default y
+    help
+      Allow spoofing the kstat of user-defined file/directory
+
+config KSU_SUSFS_SUS_MAPS
+    bool "Enable to spoof suspicious maps"
+    depends on KSU_SUSFS
+    default y
+    help
+      Allow spoofing the user-defined mappings in /proc/self/[maps|smaps]
+
+config KSU_SUSFS_SUS_PROC_FD_LINK
+    bool "Enable to spoof suspicous symbolic links"
+    depends on KSU_SUSFS
+    default y
+    help
+      Allow spoofing the user-defined symbolic link in /proc/self/fd/
+
+config KSU_SUSFS_SUS_MEMFD
+    bool "Enable to hide or spoof suspicous memfd (experimental)"
+    depends on KSU_SUSFS
+    default y
+    help
+      Allow preventing the user-defined memfd name from being created
+      Allow spoofing the memfd name of user-defined name
+
+config KSU_SUSFS_TRY_UMOUNT
+    bool "Enable to use ksu's try_umount"
+    depends on KSU_SUSFS
+    default y
+    help
+      Allow using ksu's umount to umount other user-defined mount paths prior to ksu's default umount paths
+
+config KSU_SUSFS_SPOOF_UNAME
+    bool "Enable to spoof uname"
+    depends on KSU_SUSFS
+    default y
+    help
+      Allow spoofing the string returned by uname syscall to user-defined string
+
+config KSU_SUSFS_ENABLE_LOG
+    bool "Enable logging susfs log to kernel"
+    depends on KSU_SUSFS
+    default y
+    help
+      Allow logging susfs log to kernel, uncheck it to completely disable all susfs log
+
 endmenu
