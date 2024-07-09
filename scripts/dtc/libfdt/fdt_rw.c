@@ -398,7 +398,7 @@ static void fdt_packblocks_(const char *old, char *new,
 			    int struct_size,
 			    int strings_size)
 {
-	int mem_rsv_off, struct_off, strings_off;
+	uint32_t mem_rsv_off, struct_off, strings_off;
 
 	mem_rsv_off = FDT_ALIGN(sizeof(struct fdt_header), 8);
 	struct_off = mem_rsv_off + mem_rsv_size;
