@@ -255,6 +255,9 @@ int fdt_path_offset_namelen(const void *fdt, const char *path, int namelen)
 
 	FDT_RO_PROBE(fdt);
 
+	if (!can_assume(VALID_INPUT) && namelen <= 0)
+		return -FDT_ERR_BADPATH;
+
 	/* see if we have an alias */
 	if (*path != '/') {
 		const char *q = memchr(path, '/', end - p);
@@ -527,16 +530,26 @@ static const void *fdt_path_getprop_namelen(const void *fdt, const char *path,
 					    int *lenp)
 {
 	int offset = fdt_path_offset(fdt, path);
+
 	if (offset < 0)
 		return NULL;
 
 	return fdt_getprop_namelen(fdt, offset, propname, propnamelen, lenp);
 }
 
-	const char *fdt_get_alias_namelen(const void *fdt,
+const char *fdt_get_alias_namelen(const void *fdt,
 				  const char *name, int namelen)
-	{
-	return fdt_path_getprop_namelen(fdt, "/aliases", name, namelen, NULL);
+{
+	int len;
+	const char *alias;
+
+	alias = fdt_path_getprop_namelen(fdt, "/aliases", name, namelen, &len);
+
+	if (!can_assume(VALID_DTB) &&
+	    !(alias && len > 0 && alias[len - 1] == '\0' && *alias == '/'))
+		return NULL;
+
+	return alias;
 }
 
 const char *fdt_get_alias(const void *fdt, const char *name)
