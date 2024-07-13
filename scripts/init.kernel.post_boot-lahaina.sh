@@ -265,5 +265,8 @@ setprop vendor.post_boot.parsed 1
 #liochen@SYSTEM, 2020/11/02, Add for enable ufs performance
 echo 0 > /sys/class/scsi_host/host0/../../../clkscale_enable
 
+# Enable FUSE
+setprop persist.sys.fuse.passthrough.enable true
+
 # Re-enable SELinux
 echo "97" > /sys/fs/selinux/enforce
