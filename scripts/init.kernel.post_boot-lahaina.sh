@@ -115,9 +115,6 @@ echo 162 > /proc/sys/kernel/sched_min_task_util_for_colocation
 # cpuset parameters
 echo 0-3 > /dev/cpuset/background/cpus
 echo 0-3 > /dev/cpuset/system-background/cpus
-echo 0-3 > /dev/cpuset/restricted/cpus
-# jared.wu@OPTIMIZATION, 2020/09/22, Make foreground run on cpu 0-6
-echo 0-6 > /dev/cpuset/foreground/cpus
 
 # configure governor settings for silver cluster
 echo "schedutil" > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
