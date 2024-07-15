@@ -89,6 +89,11 @@ extern int __mnt_want_write_file(struct file *);
 extern void __mnt_drop_write_file(struct file *);
 
 extern void dissolve_on_fput(struct vfsmount *);
+
+#ifdef CONFIG_KSU_SUSFS
+int path_umount(struct path *path, int flags);
+#endif
+
 /*
  * fs_struct.c
  */
