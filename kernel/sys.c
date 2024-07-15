@@ -76,6 +76,10 @@
 
 #include "uid16.h"
 
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs.h>
+#endif
+
 #include <trace/hooks/sys.h>
 
 #ifndef SET_UNALIGN_CTL
@@ -1282,6 +1286,10 @@ SYSCALL_DEFINE1(newuname, struct new_utsname __user *, name)
 		snprintf(tmp.release, sizeof(tmp.release), "%u.%u.%u-qgki",
 			 (u8)((LINUX_VERSION_CODE >> 16) & 0xff), (u8)((LINUX_VERSION_CODE >> 8) & 0xff),
 			 (u16)(LINUX_VERSION_CODE & 0xffff));
+
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+	susfs_spoof_uname(&tmp);
+#endif
 
 	if (copy_to_user(name, &tmp, sizeof(tmp)))
 		return -EFAULT;
