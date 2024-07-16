@@ -58,11 +58,6 @@ if ! mount | grep -q "$BIND" && [ ! -e /sbin/recovery ] && [ ! -e /dev/ep/.post_
   # lazy unmount /dev/ep for invisibility
   umount -l /dev/ep
 
-  # Wait until "on init" is triggered
-  while [ ! -e /dev/cpuset/background ]; do
-    sleep 1
-  done
-
   # Disable read-ahead swap
   echo 0 > /proc/sys/vm/page-cluster
 
@@ -96,10 +91,6 @@ echo 10 10 10 10 10 10 10 95 > /proc/sys/kernel/sched_coloc_busy_hyst_cpu_busy_p
 echo 325 > /proc/sys/kernel/walt_low_latency_task_threshold
 # change colocation threshold
 echo 162 > /proc/sys/kernel/sched_min_task_util_for_colocation
-
-# cpuset parameters
-echo 0-3 > /dev/cpuset/background/cpus
-echo 0-3 > /dev/cpuset/system-background/cpus
 
 # configure governor settings for silver cluster
 echo "schedutil" > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
