@@ -241,6 +241,15 @@ const char *kgsl_context_type(int type)
 	return "ANY";
 }
 
+/* Scheduled by kgsl_mem_entry_put_deferred() */
+static void _deferred_put(struct work_struct *work)
+{
+	struct kgsl_mem_entry *entry =
+		container_of(work, struct kgsl_mem_entry, work);
+
+	kgsl_mem_entry_put(entry);
+}
+
 static struct kgsl_mem_entry *kgsl_mem_entry_create(void)
 {
 	struct kgsl_mem_entry *entry = kzalloc(sizeof(*entry), GFP_KERNEL);
@@ -436,25 +445,6 @@ static int kgsl_mem_entry_track_gpuaddr(struct kgsl_device *device,
 
 	return kgsl_mmu_get_gpuaddr(pagetable, &entry->memdesc);
 }
-
-/* Scheduled by kgsl_mem_entry_destroy_deferred() */
-static void _deferred_destroy(struct work_struct *work)
-{
-	struct kgsl_mem_entry *entry =
-		container_of(work, struct kgsl_mem_entry, work);
-
-	kgsl_mem_entry_destroy(&entry->refcount);
-}
-
-void kgsl_mem_entry_destroy_deferred(struct kref *kref)
-{
-	struct kgsl_mem_entry *entry =
-		container_of(kref, struct kgsl_mem_entry, refcount);
-
-	INIT_WORK(&entry->work, _deferred_destroy);
-	queue_work(kgsl_driver.mem_workqueue, &entry->work);
-}
-
 
 /* Commit the entry to the process so it can be accessed by other operations */
 static void kgsl_mem_entry_commit_process(struct kgsl_mem_entry *entry)
@@ -2241,7 +2231,7 @@ static void gpumem_free_func(struct kgsl_device *device,
 			entry->memdesc.gpuaddr, entry->memdesc.size,
 			entry->memdesc.flags);
 
-	kgsl_mem_entry_put_deferred(entry);
+	kgsl_mem_entry_put(entry);
 }
 
 static long gpumem_free_entry_on_timestamp(struct kgsl_device *device,
@@ -2341,7 +2331,8 @@ static bool gpuobj_free_fence_func(void *priv)
 			entry->memdesc.gpuaddr, entry->memdesc.size,
 			entry->memdesc.flags);
 
-	kgsl_mem_entry_put_deferred(entry);
+	INIT_WORK(&entry->work, _deferred_put);
+	queue_work(kgsl_driver.mem_workqueue, &entry->work);
 	return true;
 }
 
@@ -2574,14 +2565,6 @@ static int kgsl_setup_anon_useraddr(struct kgsl_pagetable *pagetable,
 	}
 
 	ret =  memdesc_sg_virt(&entry->memdesc, hostptr);
-
-	/* if OOM, retry once after flushing mem_workqueue */
-	if (ret == -ENOMEM) {
-		flush_workqueue(kgsl_driver.mem_workqueue);
-		ret = kgsl_mmu_set_svm_region(pagetable,
-			(uint64_t) hostptr, (uint64_t) size);
-	}
-
 
 	if (ret && kgsl_memdesc_use_cpu_map(&entry->memdesc))
 		kgsl_mmu_put_gpuaddr(&entry->memdesc);
@@ -4189,11 +4172,6 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 					       (int) val);
 	} else {
 		val = get_svm_unmapped_area(file, entry, addr, len, flags);
-		/* if OOM, retry once after flushing mem_workqueue */
-		if (val == -ENOMEM) {
-			flush_workqueue(kgsl_driver.mem_workqueue);
-			val = get_svm_unmapped_area(file, entry, addr, len, flags);
-		}
 		if (IS_ERR_VALUE(val))
 			dev_err_ratelimited(device->dev,
 					       "_get_svm_area: pid %d addr %lx pgoff %lx len %ld failed error %d\n",
@@ -4495,7 +4473,6 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 {
 	struct platform_device *pdev = device->pdev;
 	int status = -EINVAL;
-	struct sched_param param = { .sched_priority = MAX_RT_PRIO / 2 };
 
 	status = _register_device(device);
 	if (status)
@@ -4538,7 +4515,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 		goto error_pwrctrl_close;
 	}
 
-	sched_setscheduler_nocheck(device->events_worker->task, SCHED_FIFO, &param);
+	sched_set_fifo(device->events_worker->task);
 
 	/* This can return -EPROBE_DEFER */
 	status = kgsl_mmu_probe(device);
