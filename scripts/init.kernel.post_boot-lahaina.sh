@@ -63,22 +63,7 @@ if ! mount | grep -q "$BIND" && [ ! -e /sbin/recovery ] && [ ! -e /dev/ep/.post_
     sleep 1
   done
 
-  # Setup swap
-  while [ ! -e /dev/block/zram0 ]; do
-    sleep 1
-  done
-  if ! grep -q zram /proc/swaps; then
-    MemStr=$(cat /proc/meminfo | grep MemTotal)
-    MemKb=$((${MemStr:16:8}))
-
-    # Set swap size to half of MemTotal
-    # Align by 4 MiB
-    expr $MemKb / 2 '*' 1024 / 4194304 '*' 4194304 > /sys/block/zram0/disksize
-
-    mkswap /dev/block/zram0
-    swapon /dev/block/zram0
-  fi
-
+  # Disable read-ahead swap
   echo 0 > /proc/sys/vm/page-cluster
 
   # configure input boost settings
