@@ -55,6 +55,31 @@ if ! mount | grep -q "$BIND" && [ ! -e /sbin/recovery ] && [ ! -e /dev/ep/.post_
   mount --bind /dev/ep/execprog "$BIND"
   chcon "u:object_r:vendor_file:s0" "$BIND"
 
+  # Optimize LMKD Settings for Background App Management
+  # Temporary directory
+  TEMP_DIR=/dev/ep
+  # Copy the original file
+  cp -p /vendor/etc/perf/perfconfigstore.xml $TEMP_DIR/perfconfigstore.xml
+  cp -p /vendor/etc/perf/perfconfigstore.xml "$TEMP_DIR/perfconfigstore.xml"
+  # Function to add or replace a line
+  add_or_replace() {
+    local prop_name="$1"
+    local prop_value="$2"
+    sed -i "/<Prop Name=\"$prop_name\"/d" $TEMP_DIR/perfconfigstore.xml
+    echo "<Prop Name=\"$prop_name\" Value=\"$prop_value\" />" >> $TEMP_DIR/perfconfigstore.xml
+  }
+  # Replace or add desired lines
+  add_or_replace "ro.vendor.qti.sys.fw.bg_apps_limit" "224"
+  add_or_replace "ro.lmk.kill_timeout_ms_dup" "350"
+  add_or_replace "ro.lmk.thrashing_threshold" "32"
+  add_or_replace "ro.lmk.psi_scrit_complete_stall_ms" "400"
+  add_or_replace "ro.lmk.super_critical" "850"
+  # Replace the original file
+  cp "$TEMP_DIR/perfconfigstore.xml" /vendor/etc/perf/perfconfigstore.xml
+  # Correct security context
+  chcon "u:object_r:vendor_configs_file:s0" /vendor/etc/perf/perfconfigstore.xml
+  ## END Optimize LMKD ##
+
   # lazy unmount /dev/ep for invisibility
   umount -l /dev/ep
 
