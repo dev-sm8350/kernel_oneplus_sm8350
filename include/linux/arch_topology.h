@@ -41,16 +41,6 @@ unsigned long topology_get_max_freq_scale(struct sched_domain *sd, int cpu)
 	return per_cpu(max_freq_scale, cpu);
 }
 
-DECLARE_PER_CPU(unsigned long, thermal_pressure);
-
-static inline unsigned long topology_get_thermal_pressure(int cpu)
-{
-	return per_cpu(thermal_pressure, cpu);
-}
-
-void topology_set_thermal_pressure(const struct cpumask *cpus,
-				   unsigned long th_pressure);
-
 struct cpu_topology {
 	int thread_id;
 	int core_id;

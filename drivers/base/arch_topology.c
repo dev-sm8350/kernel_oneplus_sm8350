@@ -71,21 +71,6 @@ void topology_set_cpu_scale(unsigned int cpu, unsigned long capacity)
 	per_cpu(cpu_scale, cpu) = capacity;
 }
 
-DEFINE_PER_CPU(unsigned long, thermal_pressure);
-
-extern void walt_update_thermal_stats(int cpu);
-
-void topology_set_thermal_pressure(const struct cpumask *cpus,
-			       unsigned long th_pressure)
-{
-	int cpu;
-
-	for_each_cpu(cpu, cpus) {
-		WRITE_ONCE(per_cpu(thermal_pressure, cpu), th_pressure);
-        walt_update_thermal_stats(cpu);
-	}
-}
-
 static ssize_t cpu_capacity_show(struct device *dev,
 				 struct device_attribute *attr,
 				 char *buf)
