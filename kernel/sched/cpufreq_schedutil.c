@@ -278,12 +278,9 @@ unsigned long schedutil_cpu_util(int cpu, unsigned long util_cfs,
 	 * When there are no CFS RUNNABLE tasks, clamps are released and
 	 * frequency will be gracefully reduced with the utilization decay.
 	 */
-	if (type == FREQUENCY_UTIL) {
-		util = apply_dvfs_headroom(util_cfs, cpu) + cpu_util_rt(rq);
+	util = util_cfs + cpu_util_rt(rq);
+	if (type == FREQUENCY_UTIL)
 		util = uclamp_rq_util_with(rq, util, p);
-	} else {
-		util = util_cfs + cpu_util_rt(rq);
-	}
 
 	dl_util = cpu_util_dl(rq);
 
