@@ -9,10 +9,8 @@
 #include <linux/sched/stat.h>
 #include <trace/events/sched.h>
 #include "qc_vas.h"
-#include <linux/qcom-cpufreq-hw.h>
 
 #include <trace/events/sched.h>
-#include <trace/events/power.h>
 
 const char *task_event_names[] = {"PUT_PREV_TASK", "PICK_NEXT_TASK",
 				  "TASK_WAKE", "TASK_MIGRATE", "TASK_UPDATE",
@@ -145,7 +143,7 @@ __read_mostly unsigned int sysctl_sched_asym_cap_sibling_freq_match_pct = 100;
 __read_mostly unsigned int sysctl_sched_asym_cap_sibling_freq_match_en;
 static cpumask_t asym_freq_match_cpus = CPU_MASK_NONE;
 
-static __read_mostly unsigned int sched_ravg_hist_size = RAVG_HIST_SIZE_MAX;
+static __read_mostly unsigned int sched_ravg_hist_size = 5;
 
 static __read_mostly unsigned int sched_io_is_busy = 1;
 
@@ -797,6 +795,11 @@ static void update_rq_load_subtractions(int index, struct rq *rq,
 	rq->wrq.load_subs[index].subs +=  sub_load;
 	if (new_task)
 		rq->wrq.load_subs[index].new_subs += sub_load;
+}
+
+static inline struct walt_sched_cluster *cpu_cluster(int cpu)
+{
+	return cpu_rq(cpu)->wrq.cluster;
 }
 
 static void update_cluster_load_subtractions(struct task_struct *p,
@@ -2193,7 +2196,7 @@ update_task_rq_cpu_cycles(struct task_struct *p, struct rq *rq, int event,
 	p->wts.cpu_cycles = cur_cycles;
 }
 
-static inline void run_walt_irq_work_rollover(u64 old_window_start, struct rq *rq)
+static inline void run_walt_irq_work(u64 old_window_start, struct rq *rq)
 {
 	u64 result;
 
@@ -2241,7 +2244,7 @@ void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 done:
 	p->wts.mark_start = wallclock;
 
-	run_walt_irq_work_rollover(old_window_start, rq);
+	run_walt_irq_work(old_window_start, rq);
 }
 
 u32 sched_get_init_task_load(struct task_struct *p)
@@ -2423,7 +2426,6 @@ static struct walt_sched_cluster *alloc_new_cluster(const struct cpumask *cpus)
 
 	INIT_LIST_HEAD(&cluster->list);
 	cluster->cur_freq		=	1;
-	cluster->max_freq		=	1;
 	cluster->max_possible_freq	=	1;
 
 	raw_spin_lock_init(&cluster->load_lock);
@@ -2647,7 +2649,7 @@ void walt_update_cluster_topology(void)
 			cluster->max_possible_freq = policy->cpuinfo.max_freq;
 			/*CPU run at its fmax at boot time*/
 			cluster->cur_freq = policy->cpuinfo.max_freq;
-			cluster->max_freq = policy->max;
+
 			for_each_cpu(i, &cluster->cpus)
 				cpumask_copy(&cpu_rq(i)->wrq.freq_domain_cpumask,
 					     policy->related_cpus);
@@ -3472,28 +3474,19 @@ static void walt_update_irqload(struct rq *rq)
 		rq->wrq.high_irqload = 0;
 }
 
-/**
- * __walt_irq_work_locked() - common function to process work
- * @is_migration: if true, performing migration work, else rollover
- * @lock_cpus: mask of the cpus involved in the operation.
- *
- * In rq locked context, update the cluster group load and find
- * the load of the min cluster, while tracking the total aggregate
- * work load.  Update the cpufreq through the walt governor,
- * based upon the new load calculated.
- *
- * For the window rollover case lock_cpus will be all possible cpus,
- * and for migrations it will include the cpus from the two clusters
- * involved in the migration.
+/*
+ * Runs in hard-irq context. This should ideally run just after the latest
+ * window roll-over.
  */
-static inline void __walt_irq_work_locked(bool is_migration, struct cpumask *lock_cpus)
+static void walt_irq_work(struct irq_work *irq_work)
 {
 	struct walt_sched_cluster *cluster;
 	struct rq *rq;
 	int cpu;
 	u64 wc;
-	bool is_asym_migration = false;
+	bool is_migration = false, is_asym_migration = false;
 	u64 total_grp_load = 0, min_cluster_grp_load = 0;
+	int level = 0;
 	u64 cur_jiffies_ts;
 	unsigned long flags;
 	struct cpumask freq_match_cpus;
@@ -3504,6 +3497,18 @@ static inline void __walt_irq_work_locked(bool is_migration, struct cpumask *loc
 	else
 		cpumask_copy(&freq_match_cpus, &asym_cap_sibling_cpus);
 
+	/* Am I the window rollover work or the migration work? */
+	if (irq_work == &walt_migration_irq_work)
+		is_migration = true;
+
+	for_each_cpu(cpu, cpu_possible_mask) {
+		if (level == 0)
+			raw_spin_lock(&cpu_rq(cpu)->lock);
+		else
+			raw_spin_lock_nested(&cpu_rq(cpu)->lock, level);
+		level++;
+	}
+
 	wc = sched_ktime_clock();
 	cur_jiffies_ts = get_jiffies_64();
 	walt_load_reported_window = atomic64_read(&walt_irq_work_lastq_ws);
@@ -3511,17 +3516,13 @@ static inline void __walt_irq_work_locked(bool is_migration, struct cpumask *loc
 		u64 aggr_grp_load = 0;
 
 		raw_spin_lock(&cluster->load_lock);
+
 		for_each_cpu(cpu, &cluster->cpus) {
 			rq = cpu_rq(cpu);
 			if (rq->curr) {
-				/* only update ravg for locked cpus */
-				if (cpumask_intersects(lock_cpus, &cluster->cpus)) {
-					walt_update_task_ravg(rq->curr, rq,
-							      TASK_UPDATE, wc, 0);
-					account_load_subtractions(rq);
-				}
-
-				/* update aggr_grp_load for all clusters, all cpus */
+				walt_update_task_ravg(rq->curr, rq,
+						TASK_UPDATE, wc, 0);
+				account_load_subtractions(rq);
 				aggr_grp_load +=
 					rq->wrq.grp_time.prev_runnable_sum;
 			}
@@ -3531,13 +3532,13 @@ static inline void __walt_irq_work_locked(bool is_migration, struct cpumask *loc
 				rq->wrq.notif_pending = false;
 			}
 		}
-		raw_spin_unlock(&cluster->load_lock);
 
 		cluster->aggr_grp_load = aggr_grp_load;
 		total_grp_load += aggr_grp_load;
 
 		if (is_min_capacity_cluster(cluster))
 			min_cluster_grp_load = aggr_grp_load;
+		raw_spin_unlock(&cluster->load_lock);
 	}
 
 	if (total_grp_load) {
@@ -3560,10 +3561,6 @@ static inline void __walt_irq_work_locked(bool is_migration, struct cpumask *loc
 	for_each_sched_cluster(cluster) {
 		cpumask_t cluster_online_cpus;
 		unsigned int num_cpus, i = 1;
-
-		/* for migration, skip unnotified clusters */
-		if (is_migration && !cpumask_intersects(lock_cpus, &cluster->cpus))
-			continue;
 
 		cpumask_and(&cluster_online_cpus, &cluster->cpus,
 						cpu_online_mask);
@@ -3625,121 +3622,8 @@ static inline void __walt_irq_work_locked(bool is_migration, struct cpumask *loc
 		}
 		spin_unlock_irqrestore(&sched_ravg_window_lock, flags);
 	}
-}
 
-/**
- * irq_work_restrict_to_mig_clusters() - only allow notified clusters
- * @lock_cpus: mask of the cpus for which the runque should be locked.
- *
- * Remove cpus in clusters that are not part of the migration, using
- * the notif_pending flag to track.
- *
- * This is only valid for the migration irq work.
- */
-static inline void irq_work_restrict_to_mig_clusters(cpumask_t *lock_cpus)
-{
-	struct walt_sched_cluster *cluster;
-	struct rq *rq;
-	int cpu;
-
-	for_each_sched_cluster(cluster) {
-		for_each_cpu(cpu, &cluster->cpus) {
-			rq = cpu_rq(cpu);
-			/* remove this cluster if it's not being notified */
-			if (!rq->wrq.notif_pending) {
-				cpumask_andnot(lock_cpus, lock_cpus, &cluster->cpus);
-				break;
-			}
-		}
-	}
-}
-
-static void update_cpu_capacity_helper(int cpu)
-{
-	unsigned long fmax_capacity = arch_scale_cpu_capacity(cpu);
-	unsigned long thermal_pressure = arch_scale_thermal_pressure(cpu);
-	unsigned long thermal_cap, old;
-	struct walt_sched_cluster *cluster;
-	struct rq *rq = cpu_rq(cpu);
-
-	/*
-	 * thermal_pressure = cpu_scale - curr_cap_as_per_thermal.
-	 * so,
-	 * curr_cap_as_per_thermal = cpu_scale - thermal_pressure.
-	 */
-
-	thermal_cap = fmax_capacity - thermal_pressure;
-
-	cluster = cpu_cluster(cpu);
-	/* reduce the fmax_capacity under cpufreq constraints */
-	if (cluster->max_freq != cluster->max_possible_freq)
-		fmax_capacity = mult_frac(fmax_capacity, cluster->max_freq,
-					 cluster->max_possible_freq);
-
-	old = rq->cpu_capacity_orig;
-	rq->cpu_capacity_orig = min(fmax_capacity, thermal_cap);
-}
-
-/*
- * The intention of this function is to update cpu_capacity_orig as well as
- * (*capacity), otherwise we will end up capacity_of() > capacity_orig_of().
- */
-void walt_update_cpu_capacity(int cpu, unsigned long *capacity)
-{
-	unsigned long rt_pressure = arch_scale_cpu_capacity(cpu) - *capacity;
-
-	update_cpu_capacity_helper(cpu);
-	*capacity = max((int)(cpu_rq(cpu)->cpu_capacity_orig - rt_pressure), 0);
-}
-
-void walt_cpu_frequency_limits(struct cpufreq_policy *policy)
-{
-	int cpu;
-
-	cpu_cluster(policy->cpu)->max_freq = policy->max;
-	for_each_cpu(cpu, policy->related_cpus)
-		update_cpu_capacity_helper(cpu);
-}
-
-void walt_update_thermal_stats(int cpu)
-{
-	update_cpu_capacity_helper(cpu);
-}
-
-/**
- * walt_irq_work() - perform walt irq work for rollover and migration
- *
- * Process a workqueue call scheduled, while running in a hard irq
- * protected context.  Handle migration and window rollover work
- * with common funtionality, and on window rollover ask core control
- * to decide if it needs to adjust the active cpus.
- */
-static void walt_irq_work(struct irq_work *irq_work)
-{
-	cpumask_t lock_cpus;
-	int level = 0;
-	int cpu;
-	bool is_migration = false;
-
-	if (irq_work == &walt_migration_irq_work)
-		is_migration = true;
-
-	cpumask_copy(&lock_cpus, cpu_possible_mask);
-
-	if (is_migration)
-		irq_work_restrict_to_mig_clusters(&lock_cpus);
-
-	for_each_cpu(cpu, &lock_cpus) {
-		if (level == 0)
-			raw_spin_lock(&cpu_rq(cpu)->lock);
-		else
-			raw_spin_lock_nested(&cpu_rq(cpu)->lock, level);
-		level++;
-	}
-
-	__walt_irq_work_locked(is_migration, &lock_cpus);
-
-	for_each_cpu(cpu, &lock_cpus)
+	for_each_cpu(cpu, cpu_possible_mask)
 		raw_spin_unlock(&cpu_rq(cpu)->lock);
 
 	if (!is_migration)
