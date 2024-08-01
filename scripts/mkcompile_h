@@ -64,11 +64,16 @@ UTS_TRUNCATE="cut -b -$UTS_LEN"
   echo \#define LINUX_COMPILE_BY \"`echo $LINUX_COMPILE_BY | $UTS_TRUNCATE`\"
   echo \#define LINUX_COMPILE_HOST \"`echo $LINUX_COMPILE_HOST | $UTS_TRUNCATE`\"
 
+  remote=$(git remote -v 2>&1 | grep push | head -n1 | cut -f2 | sed "s/(push)//" | cut -f4 -d "/")
+  domain=$(git remote -v 2>&1 | grep push | head -n1 | cut -f2 | sed "s/(push)//" | cut -f5 -d "/" | xargs)
+  branch=$(git status 2>&1 | grep "On branch" | sed -e 's/On branch //g')
+  commit=$(git rev-parse --short=8 HEAD)
+
   CC_VERSION=$(echo $CC_VERSION | perl -pe 's/\(http.*?\)//gs' | sed 's/[[:space:]]*$//')
   LD_VERSION=$($LD -v | head -n1 | sed 's/(compatible with [^)]*)//' \
                       | perl -pe 's/\(http.*?\)//gs' | sed 's/[[:space:]]*$//')
   if [ -z "$KBUILD_COMPILER_STRING" ]; then
-    printf '#define LINUX_COMPILER "%s"\n' "$CC_VERSION, $LD_VERSION"
+    printf '#define LINUX_COMPILER "%s"\n' "$CC_VERSION, $LD_VERSION, $remote, $domain, $branch, $commit"
   else
     printf '#define LINUX_COMPILER "%s"\n' "$KBUILD_COMPILER_STRING"
   fi;
