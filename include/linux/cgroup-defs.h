@@ -255,8 +255,7 @@ struct css_set {
 	 * List of csets participating in the on-going migration either as
 	 * source or destination.  Protected by cgroup_mutex.
 	 */
-	struct list_head mg_src_preload_node;
-	struct list_head mg_dst_preload_node;
+	struct list_head mg_preload_node;
 	struct list_head mg_node;
 
 	/*
@@ -275,6 +274,13 @@ struct css_set {
 
 	/* For RCU-protected deletion */
 	struct rcu_head rcu_head;
+};
+
+struct ext_css_set {
+	struct css_set cset;
+
+	struct list_head mg_src_preload_node;
+	struct list_head mg_dst_preload_node;
 };
 
 struct cgroup_base_stat {
@@ -798,9 +804,13 @@ struct sock_cgroup_data {
 	union {
 #ifdef __LITTLE_ENDIAN
 		struct {
+#ifdef __GENKSYMS__
+			u8	is_data;
+#else
 			u8	is_data : 1;
 			u8	no_refcnt : 1;
 			u8	unused : 6;
+#endif
 			u8	padding;
 			u16	prioidx;
 			u32	classid;

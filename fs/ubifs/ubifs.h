@@ -31,6 +31,7 @@
 #include <crypto/hash.h>
 #include <crypto/algapi.h>
 
+#define FSCRYPT_NEED_OPS
 #include <linux/fscrypt.h>
 
 #include "ubifs-media.h"
@@ -2101,13 +2102,6 @@ int ubifs_decrypt(const struct inode *inode, struct ubifs_data_node *dn,
 #endif
 
 extern const struct fscrypt_operations ubifs_crypt_operations;
-
-static inline bool ubifs_crypt_is_encrypted(const struct inode *inode)
-{
-	const struct ubifs_inode *ui = ubifs_inode(inode);
-
-	return ui->flags & UBIFS_CRYPT_FL;
-}
 
 /* Normal UBIFS messages */
 __printf(2, 3)

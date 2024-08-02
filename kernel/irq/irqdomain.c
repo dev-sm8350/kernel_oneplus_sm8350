@@ -320,6 +320,7 @@ void irq_domain_update_bus_token(struct irq_domain *domain,
 
 	mutex_unlock(&irq_domain_mutex);
 }
+EXPORT_SYMBOL_GPL(irq_domain_update_bus_token);
 
 /**
  * irq_domain_add_simple() - Register an irq_domain and optionally map a range of irqs
@@ -744,6 +745,12 @@ out:
 	return virq;
 }
 EXPORT_SYMBOL_GPL(irq_create_mapping_affinity);
+
+unsigned int irq_create_mapping(struct irq_domain *host, irq_hw_number_t hwirq)
+{
+	return irq_create_mapping_affinity(host, hwirq, NULL);
+}
+EXPORT_SYMBOL_GPL(irq_create_mapping);
 
 /**
  * irq_create_strict_mappings() - Map a range of hw irqs to fixed linux irqs

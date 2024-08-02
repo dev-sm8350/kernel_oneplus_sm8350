@@ -35,6 +35,7 @@
 #include <linux/of.h>
 #include <linux/mutex.h>
 #include <linux/radix-tree.h>
+#include <linux/android_kabi.h>
 
 struct device_node;
 struct irq_domain;
@@ -83,6 +84,7 @@ enum irq_domain_bus_token {
 	DOMAIN_BUS_IPI,
 	DOMAIN_BUS_FSL_MC_MSI,
 	DOMAIN_BUS_TI_SCI_INTA_MSI,
+	DOMAIN_BUS_WAKEUP,
 };
 
 /**
@@ -176,6 +178,11 @@ struct irq_domain {
 	struct dentry		*debugfs_file;
 #endif
 
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
+
 	/* reverse map data. The linear map gets appended to the irq_domain */
 	irq_hw_number_t hwirq_max;
 	unsigned int revmap_direct_max_irq;
@@ -254,7 +261,11 @@ static inline struct fwnode_handle *irq_domain_alloc_fwnode(phys_addr_t *pa)
 }
 
 void irq_domain_free_fwnode(struct fwnode_handle *fwnode);
+#ifdef __GENKSYMS__	/* Android KABI hack to preserve CRC checker */
+struct irq_domain *__irq_domain_add(struct fwnode_handle *fwnode, int size,
+#else
 struct irq_domain *__irq_domain_add(struct fwnode_handle *fwnode, unsigned int size,
+#endif
 				    irq_hw_number_t hwirq_max, int direct_max,
 				    const struct irq_domain_ops *ops,
 				    void *host_data);
@@ -385,15 +396,9 @@ extern void irq_domain_disassociate(struct irq_domain *domain,
 extern unsigned int irq_create_mapping_affinity(struct irq_domain *host,
 				      irq_hw_number_t hwirq,
 				      const struct irq_affinity_desc *affinity);
+unsigned int irq_create_mapping(struct irq_domain *host, irq_hw_number_t hwirq);
 extern unsigned int irq_create_fwspec_mapping(struct irq_fwspec *fwspec);
 extern void irq_dispose_mapping(unsigned int virq);
-
-static inline unsigned int irq_create_mapping(struct irq_domain *host,
-					      irq_hw_number_t hwirq)
-{
-	return irq_create_mapping_affinity(host, hwirq, NULL);
-}
-
 
 /**
  * irq_linear_revmap() - Find a linux irq from a hw irq number.
