@@ -5,21 +5,20 @@
 
 config RANDOM_DEFAULT_IMPL
 	bool "Kernel RNG Default Implementation"
-	default y
+	default n
 	help
 	  The default random number generator as provided with
 	  drivers/char/random.c is selected with this option.
 
 config LRNG_AUTO_SELECTED
 	bool
-	default y if !RANDOM_DEFAULT_IMPL
-	default n if RANDOM_DEFAULT_IMPL
 	select LRNG
+	default y
 
 config LRNG
 	bool "Linux Random Number Generator"
-	default n
 	select CRYPTO_LIB_SHA256 if CRYPTO
+	default y
 	help
 	  The Linux Random Number Generator (LRNG) generates entropy
 	  from different entropy sources. Each entropy source can
@@ -126,6 +125,7 @@ menu "Entropy Source Configuration"
 
 config LRNG_RUNTIME_ES_CONFIG
 	bool "Enable runtime configuration of entropy sources"
+	default y
 	help
 	  When enabling this option, the LRNG provides the mechanism
 	  allowing to alter the entropy rate of each entropy source
@@ -339,8 +339,8 @@ config LRNG_IRQ
 
 choice
 	prompt "Continuous entropy compression boot time setting"
-	default LRNG_CONTINUOUS_COMPRESSION_ENABLED
 	depends on LRNG_IRQ
+	default LRNG_CONTINUOUS_COMPRESSION_DISABLED
 	help
 	  Select the default behavior of the interrupt entropy source
 	  continuous compression operation.
@@ -363,10 +363,10 @@ choice
 	  retaining its entropy with the compression operation.
 
 	config LRNG_CONTINUOUS_COMPRESSION_ENABLED
-		bool "Enable continuous compression (default)"
+		bool "Enable continuous compression"
 
 	config LRNG_CONTINUOUS_COMPRESSION_DISABLED
-		bool "Disable continuous compression"
+		bool "Disable continuous compression (default)"
 
 endchoice
 
@@ -416,6 +416,7 @@ config LRNG_JENT
 	bool "Enable Jitter RNG as LRNG Seed Source"
 	depends on CRYPTO
 	select CRYPTO_JITTERENTROPY
+	default y
 	help
 	  The LRNG may use the Jitter RNG as entropy source. Enabling
 	  this option enables the use of the Jitter RNG. Its default
@@ -539,6 +540,7 @@ comment "Scheduler Entropy Source"
 config LRNG_SCHED
 	bool "Enable Scheduer Entropy Source as LRNG Seed Source"
 	select LRNG_TIMER_COMMON
+	default y
 	help
 	  The LRNG models an entropy source based on the timing of the
 	  occurrence of scheduler-triggered context switches. Enable
