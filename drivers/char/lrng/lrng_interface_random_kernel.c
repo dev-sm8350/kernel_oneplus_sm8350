@@ -181,9 +181,9 @@ EXPORT_SYMBOL_GPL(add_input_randomness);
  *	 insert into entropy pool.
  * @size: length of buffer
  */
-void add_device_randomness(const void *buf, size_t size)
+void add_device_randomness(const void *buf, unsigned int len)
 {
-	lrng_pool_insert_aux((u8 *)buf, size, 0);
+	lrng_pool_insert_aux((u8 *)buf, (u64)len, 0);
 }
 EXPORT_SYMBOL(add_device_randomness);
 
@@ -294,7 +294,7 @@ EXPORT_SYMBOL_GPL(unregister_random_vmfork_notifier);
  * @buf: buffer to store the random bytes
  * @nbytes: size of the buffer
  */
-void get_random_bytes(void *buf, size_t nbytes)
+void get_random_bytes(void *buf, int nbytes)
 {
 	lrng_get_random_bytes(buf, nbytes);
 }
