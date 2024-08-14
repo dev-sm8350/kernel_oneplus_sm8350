@@ -818,6 +818,18 @@ tcp_rx_skb_cache - BOOLEAN
 
 	Default: 0 (disabled)
 
+MPTCP variables:
+
+mptcp_enabled - INTEGER
+	Enable or disable Multipath TCP for new connections.
+	Possible values are:
+
+	0: Multipath TCP is disabled on all TCP-sockets that are newly created.
+	1: Multipath TCP is enabled by default on all new TCP-sockets. Note that
+	   existing sockets in LISTEN-state will still use regular TCP.
+	2: Enables Multipath TCP only upon the request of the application
+	   throught the socket-option MPTCP_ENABLED.
+
 UDP variables:
 
 tcp_plb_enabled - BOOLEAN

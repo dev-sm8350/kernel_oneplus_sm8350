@@ -44,6 +44,8 @@
 #include <net/addrconf.h>
 #include <net/inet_common.h>
 #include <net/tcp.h>
+#include <net/mptcp.h>
+#include <net/mptcp_v4.h>
 #include <net/udp.h>
 #include <net/udplite.h>
 #include <net/xfrm.h>
@@ -224,6 +226,11 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
 				local_bh_enable();
 				/* Paired with READ_ONCE(sk->sk_prot) in inet6_stream_ops */
 				WRITE_ONCE(sk->sk_prot, &tcp_prot);
+#ifdef CONFIG_MPTCP
+				if (sock_flag(sk, SOCK_MPTCP))
+					icsk->icsk_af_ops = &mptcp_v4_specific;
+				else
+#endif
 				/* Paired with READ_ONCE() in tcp_(get|set)sockopt() */
 				WRITE_ONCE(icsk->icsk_af_ops, &ipv4_specific);
 				sk->sk_socket->ops = &inet_stream_ops;
@@ -350,6 +357,17 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
 		if (val == -1)
 			val = 0;
 		np->tclass = val;
+
+		if (is_meta_sk(sk)) {
+			struct mptcp_tcp_sock *mptcp;
+
+			mptcp_for_each_sub(tcp_sk(sk)->mpcb, mptcp) {
+				struct sock *sk_it = mptcp_to_sock(mptcp);
+
+				if (sk_it->sk_family == AF_INET6)
+					inet6_sk(sk_it)->tclass = val;
+			}
+		}
 		retv = 0;
 		break;
 

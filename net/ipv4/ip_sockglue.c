@@ -44,6 +44,8 @@
 #endif
 #include <net/ip_fib.h>
 
+#include <net/mptcp.h>
+
 #include <linux/errqueue.h>
 #include <linux/uaccess.h>
 
@@ -664,7 +666,7 @@ static int do_ip_setsockopt(struct sock *sk, int level,
 			break;
 		old = rcu_dereference_protected(inet->inet_opt,
 						lockdep_sock_is_held(sk));
-		if (inet->is_icsk) {
+		if (inet->is_icsk && !is_meta_sk(sk)) {
 			struct inet_connection_sock *icsk = inet_csk(sk);
 #if IS_ENABLED(CONFIG_IPV6)
 			if (sk->sk_family == PF_INET ||
@@ -758,6 +760,20 @@ static int do_ip_setsockopt(struct sock *sk, int level,
 			inet->tos = val;
 			sk->sk_priority = rt_tos2priority(val);
 			sk_dst_reset(sk);
+			/* Update TOS on mptcp subflow */
+			if (is_meta_sk(sk)) {
+				struct mptcp_tcp_sock *mptcp;
+
+				mptcp_for_each_sub(tcp_sk(sk)->mpcb, mptcp) {
+					struct sock *sk_it = mptcp_to_sock(mptcp);
+
+					if (inet_sk(sk_it)->tos != inet_sk(sk)->tos) {
+						inet_sk(sk_it)->tos = inet_sk(sk)->tos;
+						sk_it->sk_priority = sk->sk_priority;
+						sk_dst_reset(sk_it);
+					}
+				}
+			}
 		}
 		break;
 	case IP_TTL:
