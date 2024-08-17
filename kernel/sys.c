@@ -76,6 +76,10 @@
 
 #include "uid16.h"
 
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs.h>
+#endif
+
 #include <trace/hooks/sys.h>
 
 #ifndef SET_UNALIGN_CTL
@@ -1268,6 +1272,10 @@ SYSCALL_DEFINE1(newuname, struct new_utsname __user *, name)
 	down_read(&uts_sem);
 	memcpy(&tmp, utsname(), sizeof(tmp));
 	up_read(&uts_sem);
+
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+	susfs_spoof_uname(&tmp);
+#endif
 
 	rcu_read_lock();
 	for_each_thread(current, t) {
