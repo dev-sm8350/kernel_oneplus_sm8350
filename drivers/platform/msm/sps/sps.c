@@ -2118,7 +2118,7 @@ int sps_register_bam_device(const struct sps_bam_props *bam_props,
 	bam->ipc_log0 = ipc_log_context_create(SPS_IPC_LOGPAGES,
 							bam_name, 0);
 	if (!bam->ipc_log0)
-		SPS_DBG(sps, "unable to create IPC Log 0 for bam %pa\n",
+		SPS_ERR(sps, "unable to create IPC Log 0 for bam %pa\n",
 				&bam->props.phys_addr);
 
 	snprintf(bam_name, sizeof(bam_name), "sps_bam_%pa_1",
