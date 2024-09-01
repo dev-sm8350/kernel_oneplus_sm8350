@@ -944,12 +944,6 @@ static inline bool run_is_empty(struct runs_tree *run)
 	return !run->count;
 }
 
-/* NTFS uses quad aligned bitmaps. */
-static inline size_t bitmap_size(size_t bits)
-{
-	return ALIGN((bits + 7) >> 3, 8);
-}
-
 #define _100ns2seconds 10000000
 #define SecondsToStartOf1970 0x00000002B6109100
 
