@@ -43,6 +43,9 @@ static void exfat_put_super(struct super_block *sb)
 	exfat_free_bitmap(sbi);
 	brelse(sbi->boot_bh);
 	mutex_unlock(&sbi->s_lock);
+
+	unload_nls(sbi->nls_io);
+	exfat_free_upcase_table(sbi);
 }
 
 static int exfat_sync_fs(struct super_block *sb, int wait)
@@ -617,7 +620,7 @@ static int __exfat_fill_super(struct super_block *sb)
 	ret = exfat_load_bitmap(sb);
 	if (ret) {
 		exfat_err(sb, "failed to load alloc-bitmap");
-		goto free_bh;
+		goto free_upcase_table;
 	}
 
 	ret = exfat_count_used_clusters(sb, &sbi->used_clusters);
@@ -630,6 +633,8 @@ static int __exfat_fill_super(struct super_block *sb)
 
 free_alloc_bitmap:
 	exfat_free_bitmap(sbi);
+free_upcase_table:
+	exfat_free_upcase_table(sbi);
 free_bh:
 	brelse(sbi->boot_bh);
 	return ret;
@@ -728,10 +733,12 @@ put_inode:
 	sb->s_root = NULL;
 
 free_table:
+	exfat_free_upcase_table(sbi);
 	exfat_free_bitmap(sbi);
 	brelse(sbi->boot_bh);
 
 check_nls_io:
+	unload_nls(sbi->nls_io);
 	return err;
 }
 
@@ -796,22 +803,13 @@ static int exfat_init_fs_context(struct fs_context *fc)
 	return 0;
 }
 
-static void delayed_free(struct rcu_head *p)
-{
-	struct exfat_sb_info *sbi = container_of(p, struct exfat_sb_info, rcu);
-
-	unload_nls(sbi->nls_io);
-	exfat_free_upcase_table(sbi);
-	exfat_free_sbi(sbi);
-}
-
 static void exfat_kill_sb(struct super_block *sb)
 {
 	struct exfat_sb_info *sbi = sb->s_fs_info;
 
 	kill_block_super(sb);
 	if (sbi)
-		call_rcu(&sbi->rcu, delayed_free);
+		exfat_free_sbi(sbi);
 }
 
 static struct file_system_type exfat_fs_type = {
