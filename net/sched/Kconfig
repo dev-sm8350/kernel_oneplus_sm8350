@@ -4,6 +4,7 @@
 #
 
 menuconfig NET_SCHED
+	prompt "Enable traffic control configuration"
 	def_bool y
 	select NET_SCH_FIFO
 	select NET_SCH_FQ_CODEL
