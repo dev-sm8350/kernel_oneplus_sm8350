@@ -48,7 +48,7 @@ static int exfat_cont_expand(struct inode *inode, loff_t size)
 	clu.flags = ei->flags;
 
 	ret = exfat_alloc_cluster(inode, new_num_clusters - num_clusters,
-			&clu, inode_needs_sync(inode));
+			&clu, IS_DIRSYNC(inode));
 	if (ret)
 		return ret;
 
@@ -78,10 +78,11 @@ out:
 	i_size_write(inode, size);
 
 	inode->i_blocks = round_up(size, sbi->cluster_size) >> 9;
-	mark_inode_dirty(inode);
 
-	if (IS_SYNC(inode))
+	if (IS_DIRSYNC(inode))
 		return write_inode_now(inode, 1);
+
+	mark_inode_dirty(inode);
 
 	return 0;
 
