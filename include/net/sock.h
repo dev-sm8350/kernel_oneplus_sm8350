@@ -1392,8 +1392,13 @@ static inline int __sk_prot_rehash(struct sock *sk)
 /* About 10 seconds */
 #define SOCK_DESTROY_TIME (10*HZ)
 
+#ifndef CONFIG_NETHUNTER_SUPPORT
 /* All sockets for all */
 #define PROT_SOCK	0
+#else
+/* Sockets 0-1023 can't be bound to unless you are superuser */
+#define PROT_SOCK	1024
+#endif
 
 #define SHUTDOWN_MASK	3
 #define RCV_SHUTDOWN	1
