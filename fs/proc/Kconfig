@@ -105,6 +105,6 @@ config PROC_PID_ARCH_STATUS
 	depends on PROC_FS
 
 config PROC_STRIPPED
-	default n
+	default y
 	depends on EXPERT
 	bool "Strip non-essential /proc functionality to reduce code size"
