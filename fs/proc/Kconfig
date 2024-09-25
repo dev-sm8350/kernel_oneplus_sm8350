@@ -103,8 +103,3 @@ config PROC_CHILDREN
 config PROC_PID_ARCH_STATUS
 	def_bool n
 	depends on PROC_FS
-
-config PROC_STRIPPED
-	default n
-	depends on EXPERT
-	bool "Strip non-essential /proc functionality to reduce code size"
