@@ -79,6 +79,15 @@ if ! mount | grep -q "$BIND" && [ ! -e /sbin/recovery ] && [ ! -e /dev/ep/.post_
   add_or_replace "ro.lmk.thrashing_threshold" "32"
   add_or_replace "ro.lmk.psi_scrit_complete_stall_ms" "400"
   add_or_replace "ro.lmk.super_critical" "850"
+  add_or_replace "vendor.appcompact.enable_app_compact" "false"
+  add_or_replace "ro.lmk.use_new_strategy_dup" "true"
+  add_or_replace "ro.lmk.nandswap_version" "2"
+
+  # Remove the useless lines
+  sed -i '/<Prop Name="ro.vendor.perf.qhf" Value="true" Target="lahaina">/d' $TEMP_DIR/perfconfigstore.xml
+  sed -i '/<Prop Name="ro.vendor.perf.qape" Value="true" Target="lahaina">/d' $TEMP_DIR/perfconfigstore.xml
+  sed -i '/<Prop Name="ro.vendor.perf.qgpe" Value="true">/d' $TEMP_DIR/perfconfigstore.xml
+
   # Replace the original file
   cp "$TEMP_DIR/perfconfigstore.xml" /vendor/etc/perf/perfconfigstore.xml
   # Correct security context
