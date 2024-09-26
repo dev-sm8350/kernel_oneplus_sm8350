@@ -31,6 +31,9 @@
 #include <linux/kobject.h>
 #include <linux/ctype.h>
 
+#include <soc/oplus/system/boot_mode.h>
+#define MSM_BOOT_MODE_NORMAL MSM_BOOT_MODE__NORMAL
+
 /* selinuxfs pseudo filesystem for exporting the security policy API.
    Based on the proc code and the fs/nfsd/nfsctl.c code. */
 
@@ -190,9 +193,71 @@ out:
 #define sel_write_enforce NULL
 #endif
 
-static const struct file_operations sel_enforce_ops = {
-	.read		= sel_read_enforce,
-	.write		= sel_write_enforce,
+#ifdef CONFIG_SECURITY_SELINUX_DEVELOP
+static struct file_operations sel_enforce_ops;
+
+static ssize_t sel_read_enforce_spoof(struct file *filp, char __user *buf,
+				size_t count, loff_t *ppos)
+{
+	if (get_boot_mode() != MSM_BOOT_MODE_NORMAL) {
+		// Disable spoof
+		sel_enforce_ops.read = sel_read_enforce;
+		sel_enforce_ops.write = sel_write_enforce;
+		return sel_read_enforce(filp, buf, count, ppos);
+	}
+	return simple_read_from_buffer(buf, count, ppos, "1", 1);
+}
+
+static ssize_t sel_write_enforce_spoof(struct file *file, const char __user *buf,
+				 size_t count, loff_t *ppos)
+
+{
+	char *page = NULL;
+	ssize_t length;
+	int new_value;
+
+	if (get_boot_mode() != MSM_BOOT_MODE_NORMAL) {
+		// Disable spoof
+		sel_enforce_ops.read = sel_read_enforce;
+		sel_enforce_ops.write = sel_write_enforce;
+		return sel_write_enforce(file, buf, count, ppos);
+	}
+
+	if (count >= PAGE_SIZE)
+		return -ENOMEM;
+
+	/* No partial writes. */
+	if (*ppos != 0)
+		return -EINVAL;
+
+	page = memdup_user_nul(buf, count);
+	if (IS_ERR(page))
+		return PTR_ERR(page);
+
+	length = -EINVAL;
+	if (sscanf(page, "%d", &new_value) != 1)
+		goto out;
+
+	if (new_value == 97) {
+		// Enforce SELinux
+		sel_write_enforce(file, buf, count, ppos);
+		// Disable spoof
+		sel_enforce_ops.read = sel_read_enforce;
+		sel_enforce_ops.write = sel_write_enforce;
+	}
+	length = count;
+out:
+	kfree(page);
+	return length;
+}
+#else
+#define sel_read_enforce_spoof sel_read_enforce
+#define sel_write_enforce_spoof sel_write_enforce
+#endif
+
+static struct file_operations sel_enforce_ops = {
+	.read		= sel_read_enforce_spoof,
+	.write		= sel_write_enforce_spoof,
 	.llseek		= generic_file_llseek,
 };
 
