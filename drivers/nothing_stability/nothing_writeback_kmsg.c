@@ -127,7 +127,7 @@ static dev_t nt_sys_device_devt;
 
 static unsigned int is_boot_system_server = 0;
 
-int __verify_target_partition_layout(){
+int __verify_target_partition_layout(void){
 	 //NT_CHECK_LAYOUT_END_OFFSET need equal logdump partition size = 512MB
 	if(NT_CHECK_LAYOUT_END_OFFSET == NT_512M_MULT)
 		return 1;
@@ -191,7 +191,7 @@ int __write_buf_to_target_partition(struct file *target_partition_file, void *he
 	return 0;
 }
 
-struct block_device *get_target_partition_block_device()
+struct block_device *get_target_partition_block_device(void)
 {
 	struct block_device *bdev = NULL;
 	int retry_wait_for_device = RETRY_COUNT_FOR_GET_DEV_T;
@@ -407,7 +407,7 @@ static ssize_t boot_stage_systemserver_store(struct device *dev,
 
 static DEVICE_ATTR(boot_stage_systemserver, 0664, boot_stage_systemserver_show, boot_stage_systemserver_store);
 
-int create_NT_device() {
+int create_NT_device(void) {
 
 	nt_sys_device_devt = MKDEV(NT_MAJOR, NT_MINOR);
 
@@ -438,7 +438,7 @@ out:
 	return 1;
 }
 
-void remove_NT_device() {
+void remove_NT_device(void) {
 
 	NT_rkl_err_print("%s start!\n", __func__);
 	device_remove_file(nt_sys_dev, &dev_attr_boot_stage_systemserver);
