@@ -1,13 +1,13 @@
 
 config NOTHING_BOOTLOADER_LOG
 	tristate "Detailed boot log"
-	default n
+	default y
 	help
 		show booloader_log under proc/bootloader_log
 
 config NOTHING_WRITRBACK_KMSG
 	tristate "Detailed log Kernel"
-	default n
+	default y
 	help
 		The driver logs power-on to system_stage kmsg log.
 		So it doesn't log any customer info.
