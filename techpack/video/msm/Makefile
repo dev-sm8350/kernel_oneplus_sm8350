@@ -9,6 +9,7 @@ msm-vidc-objs := vidc/msm_v4l2_vidc.o \
                 vidc/msm_vdec.o \
                 vidc/msm_venc.o \
                 vidc/msm_smem.o \
+                vidc/msm_vidc_debug.o \
                 vidc/msm_vidc_res_parse.o \
                 vidc/hfi_common.o \
                 vidc/hfi_ar50_lt.o \
@@ -21,8 +22,5 @@ msm-vidc-objs := vidc/msm_v4l2_vidc.o \
                 vidc/msm_vidc_bus_iris2.o \
                 vidc/msm_vidc_buffer_calculations.o
 
-ifeq ($(CONFIG_DEBUG_FS),y)
-msm-vidc-objs += vidc/msm_vidc_debug.o
-endif
-
 obj-$(CONFIG_MSM_VIDC_V4L2) := msm-vidc.o
+
