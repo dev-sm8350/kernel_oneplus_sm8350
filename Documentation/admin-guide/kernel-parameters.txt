@@ -3437,6 +3437,7 @@
 			32: Set the half life to 32ms
 			16: Set the half life to 16ms
 			12: Set the half life to 12ms
+			10: Set the half life to 10ms
 			8: Set the half life to 8ms
 			default: 32
 
