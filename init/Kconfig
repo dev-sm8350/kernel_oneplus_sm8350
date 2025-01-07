@@ -868,6 +868,9 @@ config PELT_UTIL_HALFLIFE_16
 config PELT_UTIL_HALFLIFE_12
 	bool "12 ms"
 
+config PELT_UTIL_HALFLIFE_10
+	bool "10 ms"
+
 config PELT_UTIL_HALFLIFE_8
 	bool "8 ms"
 

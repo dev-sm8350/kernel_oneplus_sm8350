@@ -34,6 +34,10 @@
 int pelt_load_avg_period = PELT8_LOAD_AVG_PERIOD;
 int pelt_load_avg_max = PELT8_LOAD_AVG_MAX;
 const u32 *pelt_runnable_avg_yN_inv = pelt8_runnable_avg_yN_inv;
+#elif IS_ENABLED(CONFIG_PELT_UTIL_HALFLIFE_10)
+int pelt_load_avg_period = PELT10_LOAD_AVG_PERIOD;
+int pelt_load_avg_max = PELT10_LOAD_AVG_MAX;
+const u32 *pelt_runnable_avg_yN_inv = pelt10_runnable_avg_yN_inv;
 #elif IS_ENABLED(CONFIG_PELT_UTIL_HALFLIFE_12)
 int pelt_load_avg_period = PELT12_LOAD_AVG_PERIOD;
 int pelt_load_avg_max = PELT12_LOAD_AVG_MAX;
