@@ -26,9 +26,6 @@
 #include "dsi_panel.h"
 
 #include "sde_dbg.h"
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-#include "iris/dsi_iris5_api.h"
-#endif
 
 #ifdef OPLUS_BUG_STABILITY
 #include <soc/oplus/system/oplus_mm_kevent_fb.h>
@@ -1301,13 +1298,6 @@ int dsi_message_validate_tx_mode(struct dsi_ctrl *dsi_ctrl,
 
 	if (*flags & DSI_CTRL_CMD_FETCH_MEMORY) {
 		if ((dsi_ctrl->cmd_len + cmd_len + 4) > SZ_4K) {
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-			if (iris_is_chip_supported()) {
-				if ((dsi_ctrl->cmd_len + cmd_len + 4) <= SZ_256K)
-					return rc;
-				DSI_CTRL_ERR(dsi_ctrl, "Cannot transfer, size is greater than 256K\n");
-			}
-#endif
 			DSI_CTRL_ERR(dsi_ctrl, "Cannot transfer,size is greater than 4096\n");
 			return -ENOTSUPP;
 		}
@@ -1436,10 +1426,6 @@ static void dsi_kickoff_msg_tx(struct dsi_ctrl *dsi_ctrl,
 
 	if (flags & DSI_CTRL_CMD_DEFER_TRIGGER) {
 		if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-			if (iris_is_chip_supported())
-				msm_gem_sync(dsi_ctrl->tx_cmd_buf);
-#endif
 			if (flags & DSI_CTRL_CMD_NON_EMBEDDED_MODE) {
 				dsi_hw_ops.kickoff_command_non_embedded_mode(
 							&dsi_ctrl->hw,
@@ -1705,12 +1691,7 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 		packet.header[3] |= BIT(7);//set the last cmd bit in header.
 
 	if (*flags & DSI_CTRL_CMD_FETCH_MEMORY) {
-#if defined(OPLUS_FEATURE_PXLW_IRIS5)
-		if (!iris_is_chip_supported())
-			msm_gem_sync(dsi_ctrl->tx_cmd_buf);
-#else
 		msm_gem_sync(dsi_ctrl->tx_cmd_buf);
-#endif
 		cmdbuf = dsi_ctrl->vaddr + dsi_ctrl->cmd_len;
 
 		rc = dsi_ctrl_copy_and_pad_cmd(&packet, cmdbuf, length);

@@ -449,11 +449,6 @@ int dsi_panel_parse_oplus_config(struct dsi_panel *panel)
 		panel->oplus_priv.manufacture_name = DSI_PANEL_OPLUS_DUMMY_MANUFACTURE_NAME;
 	}
 
-	panel->oplus_priv.is_pxlw_iris5 = utils->read_bool(utils->data,
-					 "oplus,is_pxlw_iris5");
-	DSI_INFO("is_pxlw_iris5: %s",
-		 panel->oplus_priv.is_pxlw_iris5 ? "true" : "false");
-
 	panel->oplus_priv.is_osc_support = utils->read_bool(utils->data, "oplus,osc-support");
 	pr_info("[%s]osc mode support: %s", __func__, panel->oplus_priv.is_osc_support ? "Yes" : "Not");
 
