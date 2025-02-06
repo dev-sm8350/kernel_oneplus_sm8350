@@ -38,12 +38,15 @@ enum counter_values {
 };
 
 enum limits {
+	//adjust for expensive, high latency links -- brent@mbari.org 10-Mar-2024
+	//all that can be done while ensuring interoperability with unpatched version
 	REKEY_AFTER_MESSAGES = 1ULL << 60,
 	REJECT_AFTER_MESSAGES = U64_MAX - COUNTER_WINDOW_SIZE - 1,
+	INITIAL_REKEY_TIMEOUT = 10,
 	REKEY_TIMEOUT = 5,
 	REKEY_TIMEOUT_JITTER_MAX_JIFFIES = HZ / 3,
-	REKEY_AFTER_TIME = 120,
-	REJECT_AFTER_TIME = 180,
+	REKEY_AFTER_TIME = 150,
+	REJECT_AFTER_TIME = 210,
 	INITIATIONS_PER_SECOND = 50,
 	MAX_PEERS_PER_DEVICE = 1U << 20,
 	KEEPALIVE_TIMEOUT = 10,

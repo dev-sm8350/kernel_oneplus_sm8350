@@ -182,7 +182,7 @@ void wg_timers_any_authenticated_packet_received(struct wg_peer *peer)
 void wg_timers_handshake_initiated(struct wg_peer *peer)
 {
 	mod_peer_timer(peer, &peer->timer_retransmit_handshake,
-		       jiffies + REKEY_TIMEOUT * HZ +
+		       jiffies + INITIAL_REKEY_TIMEOUT * HZ +
 		       prandom_u32_max(REKEY_TIMEOUT_JITTER_MAX_JIFFIES));
 }
 
