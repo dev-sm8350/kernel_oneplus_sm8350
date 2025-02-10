@@ -30,7 +30,7 @@ bool ksu_execve_sucompat_hook __read_mostly = true;
 bool ksu_execveat_sucompat_hook __read_mostly = true;
 bool ksu_devpts_hook __read_mostly = true;
 
-extern void escape_to_root();
+extern void ksu_escape_to_root();
 
 static void __user *userspace_stack_buffer(const void *d, size_t len)
 {
@@ -160,7 +160,7 @@ int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
 	pr_info("do_execveat_common su found\n");
 	memcpy((void *)filename->name, sh, sizeof(sh));
 
-	escape_to_root();
+	ksu_escape_to_root();
 
 	return 0;
 }
@@ -193,7 +193,7 @@ int ksu_handle_execve_sucompat(int *fd, const char __user **filename_user,
 	pr_info("sys_execve su found\n");
 	*filename_user = ksud_user_path();
 
-	escape_to_root();
+	ksu_escape_to_root();
 
 	return 0;
 }
@@ -347,3 +347,25 @@ void ksu_sucompat_exit()
 	pr_info("ksu_sucompat_exit: hooks disabled: execve/execveat_su, faccessat, stat, devpts\n");
 #endif
 }
+
+
+#ifdef CONFIG_KSU_SUSFS_SUS_SU
+extern bool ksu_devpts_hook;
+
+void ksu_susfs_disable_sus_su(void) {
+	enable_kprobe(&execve_kp);
+	enable_kprobe(&newfstatat_kp);
+	enable_kprobe(&faccessat_kp);
+	enable_kprobe(&pts_unix98_lookup_kp);
+	ksu_devpts_hook = false;
+}
+
+void ksu_susfs_enable_sus_su(void) {
+	disable_kprobe(&execve_kp);
+	disable_kprobe(&newfstatat_kp);
+	disable_kprobe(&faccessat_kp);
+	disable_kprobe(&pts_unix98_lookup_kp);
+	ksu_devpts_hook = true;
+}
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_SU
+
