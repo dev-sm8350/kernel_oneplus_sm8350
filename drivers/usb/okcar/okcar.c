@@ -21,7 +21,7 @@
 #include <linux/slab.h>
 
 // enum OKCAR_USB_MODE {
-// 	unknow = -1,
+//     unknow = -1,
 //     none = 0,
 //     device = 1,
 //     host = 2
@@ -39,172 +39,177 @@ static char buffer[BUF_SIZE];
 
 static int device_open(struct inode *inode, struct file *file)
 {
-    printk(KERN_INFO "Device opened\n");
-    return 0;
+	pr_info("Device opened\n");
+	return 0;
 }
 
 static int device_release(struct inode *inode, struct file *file)
 {
-    printk(KERN_INFO "Device closed\n");
-    return 0;
+	pr_info("Device closed\n");
+	return 0;
 }
 
 static ssize_t device_read(struct file *file, char __user *user_buf, size_t count, loff_t *offset)
 {
-    int len;
-    if (*offset >= BUF_SIZE)
-        return 0;
+	int len = 0;
+	if (*offset >= sizeof(int))
+		return 0;
 
-    if (*offset == 0) {
-        int mode = okcar_usbmode_get();
-        len = sizeof(int);
-        copy_to_user(user_buf, &mode, len);
-    }
-    return len;
+	if (*offset == 0) {
+		int mode = okcar_usbmode_get();
+		len = sizeof(int);
+		if (copy_to_user(user_buf, &mode, len))
+			return -EFAULT;
+
+		*offset += len;
+		return len;
+	}
+	return 0;
 }
 
 static loff_t device_llseek(struct file *file, loff_t offset, int whence)
 {
-    loff_t new_pos;
+	loff_t new_pos;
 
-    switch(whence) {
-        case 0: /* SEEK_START */
-            new_pos = offset;
-            break;
+	switch (whence) {
+	case 0: /* SEEK_SET */
+		new_pos = offset;
+		break;
+	case 1: /* SEEK_CUR */
+		new_pos = file->f_pos + offset;
+		break;
+	default:
+		return -EINVAL;
+	}
 
-        case 1: /* SEEK_CUR */
-            new_pos = file->f_pos + offset;
-            break;
+	if (new_pos < 0 || new_pos > BUF_SIZE)
+		return -EINVAL;
 
-        case 2: /* SEEK_END */            
-        default: /* 不支持的whence */
-            return -EINVAL;
-    }
-
-    if (new_pos < 0 || new_pos > BUF_SIZE)
-        return -EINVAL;
-
-    file->f_pos = new_pos;
-    return new_pos;
+	file->f_pos = new_pos;
+	return new_pos;
 }
-
 
 static ssize_t device_write(struct file *file, const char __user *user_buf, size_t count, loff_t *offset)
 {
-    int len;
-    char commands[BUF_SIZE];
-    char *line = NULL;
-    char *command = NULL;
-    char *command_copy = NULL;
-    char *param_type = NULL;
-    char *param = NULL;
-    
-    if (*offset >= BUF_SIZE)
-        return 0;
-    len = min(count, (size_t)(BUF_SIZE - *offset));
-    if (copy_from_user(buffer + *offset, user_buf, len) != 0)
-        return -EFAULT;
-    *offset += len;
-    buffer[*offset] = '\0';
+	int len;
+	char commands[BUF_SIZE];
+	char *line, *command, *command_copy, *param_type, *param;
 
-    strcpy(commands, buffer);
+	if (*offset >= BUF_SIZE)
+		return 0;
 
-    // Process each command
-    line = commands;
-    while ((command = strsep(&line, "\n")) != NULL) {
-        if (*command == '\0') {
-            continue;  // Ignore empty lines
-        }
+	len = min(count, (size_t)(BUF_SIZE - *offset));
+	if (copy_from_user(buffer + *offset, user_buf, len))
+		return -EFAULT;
 
-        // Process command and parameter
-        command_copy = kstrndup(command, strlen(command), GFP_KERNEL);
-        if (!command_copy) {
-            printk(KERN_ALERT "Failed to allocate memory for command copy\n");
-            return -ENOMEM;
-        }
-        command = strsep(&command_copy, ",");
-        param_type = strsep(&command_copy, ",");
-        param = strsep(&command_copy, ",");
-        
-        if (command && param_type && param) {
-            int type;
-            int intParam;
+	*offset += len;
+	buffer[*offset] = '\0';
 
-            if (kstrtoint(param_type, 10, &type) != 0) {
-                printk(KERN_INFO "Invalid param type input: %s\n", param_type);
-                kfree(command_copy);
-                continue;
-            }
+	strncpy(commands, buffer, BUF_SIZE - 1);
+	commands[BUF_SIZE - 1] = '\0';
 
-            if (strcmp(command, "usbmode") == 0) {
-                if (type != 1) {
-                    printk(KERN_ALERT "[usbmode] Invalid integer param");
-                    continue;
-                }
-                if (kstrtoint(param, 10, &intParam) != 0) {
-                    printk(KERN_INFO "[usbmode] Invalid integer param: %s\n", param);
-                    kfree(command_copy);
-                    continue;
-                }
-                printk(KERN_INFO "[usbmode] newMode: %d\n", intParam);
-                okcar_usbmode_toggle(intParam);
-            }
-        }
-        kfree(command_copy);
-    }
+	// Process each command
+	line = commands;
+	while ((command = strsep(&line, "\n")) != NULL) {
+		if (*command == '\0')
+			continue;
 
-    return len;
+		// Process command and parameter
+		command_copy = kstrndup(command, strlen(command), GFP_KERNEL);
+		if (!command_copy) {
+			pr_err("Failed to allocate memory for command copy\n");
+			return -ENOMEM;
+		}
+
+		command = strsep(&command_copy, ",");
+		param_type = strsep(&command_copy, ",");
+		param = strsep(&command_copy, ",");
+
+		if (!command || !param_type || !param) {
+			pr_err("Invalid command format\n");
+			kfree(command_copy);
+			continue;
+		}
+
+		int type, intParam;
+		if (kstrtoint(param_type, 10, &type)) {
+			pr_err("Invalid param type input: %s\n", param_type);
+			kfree(command_copy);
+			continue;
+		}
+
+		if (strcmp(command, "usbmode") == 0) {
+			if (type != 1) {
+				pr_err("[usbmode] Invalid integer param");
+				kfree(command_copy);
+				continue;
+			}
+
+			if (kstrtoint(param, 10, &intParam)) {
+				pr_err("[usbmode] Invalid integer param: %s\n", param);
+				kfree(command_copy);
+				continue;
+			}
+
+			pr_info("[usbmode] newMode: %d\n", intParam);
+			okcar_usbmode_toggle(intParam);
+		}
+
+		kfree(command_copy);
+	}
+
+	return len;
 }
 
 static struct file_operations fops = {
-    .open = device_open,
-    .release = device_release,
-    .read = device_read,
-    .write = device_write,
-    .llseek = device_llseek,
+	.open = device_open,
+	.release = device_release,
+	.read = device_read,
+	.write = device_write,
+	.llseek = device_llseek,
 };
 
 static int __init okcar_init(void)
 {
-    if (alloc_chrdev_region(&dev, 0, 1, DEVICE_NAME) < 0) {
-        printk(KERN_ALERT "Failed to allocate device number\n");
-        return -1;
-    }
+	if (alloc_chrdev_region(&dev, 0, 1, DEVICE_NAME) < 0) {
+		pr_alert("Failed to allocate device number\n");
+		return -1;
+	}
 
-    cdev_init(&cdev, &fops);
-    if (cdev_add(&cdev, dev, 1) == -1) {
-        printk(KERN_ALERT "Failed to add character device\n");
-        unregister_chrdev_region(dev, 1);
-        return -1;
-    }
+	cdev_init(&cdev, &fops);
+	if (cdev_add(&cdev, dev, 1) == -1) {
+		pr_alert("Failed to add character device\n");
+		unregister_chrdev_region(dev, 1);
+		return -1;
+	}
 
-    device_class = class_create(THIS_MODULE, DEVICE_NAME);
-    if (device_class == NULL) {
-        printk(KERN_ALERT "Failed to create device class\n");
-        cdev_del(&cdev);
-        unregister_chrdev_region(dev, 1);
-        return -1;
-    }
+	device_class = class_create(THIS_MODULE, DEVICE_NAME);
+	if (!device_class) {
+		pr_alert("Failed to create device class\n");
+		cdev_del(&cdev);
+		unregister_chrdev_region(dev, 1);
+		return -1;
+	}
 
-    if (device_create(device_class, NULL, dev, NULL, DEVICE_NAME) == NULL) {
-        printk(KERN_ALERT "Failed to create device\n");
-        class_destroy(device_class);
-        cdev_del(&cdev);
-        unregister_chrdev_region(dev, 1);
-        return -1;
-    }
+	if (!device_create(device_class, NULL, dev, NULL, DEVICE_NAME)) {
+		pr_alert("Failed to create device\n");
+		class_destroy(device_class);
+		cdev_del(&cdev);
+		unregister_chrdev_region(dev, 1);
+		return -1;
+	}
 
-    printk(KERN_INFO "Device driver loaded\n");
-    return 0;
+	pr_info("Device driver loaded\n");
+	return 0;
 }
 
 static void __exit okcar_exit(void)
 {
-    device_destroy(device_class, dev);
-    class_destroy(device_class);
-    cdev_del(&cdev);
-    unregister_chrdev_region(dev, 1);
-    printk(KERN_INFO "Device driver unloaded\n");
+	device_destroy(device_class, dev);
+	class_destroy(device_class);
+	cdev_del(&cdev);
+	unregister_chrdev_region(dev, 1);
+	pr_info("Device driver unloaded\n");
 }
 
 module_init(okcar_init);
