@@ -1,0 +1,24 @@
+name: Compile
+
+on:
+  workflow_dispatch:  # Запуск тільки вручну
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Make compile.sh executable
+        run: chmod +x compile.sh
+
+      - name: Run compile.sh
+        run: ./compile.sh --device=lahaina --compiler=gcc
+
+      - name: Upload all ZIP files as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiled-zip
+          path: "**/*.zip"
