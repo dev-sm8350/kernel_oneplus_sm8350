@@ -99,7 +99,7 @@ u32 tcp_clamp_probe0_to_user_timeout(const struct sock *sk, u32 when)
  *  Returns: Nothing (void)
  */
 
-static void tcp_write_err(struct sock *sk)
+void tcp_write_err(struct sock *sk)
 
 {
 	sk->sk_err = sk->sk_err_soft ? : ETIMEDOUT;
