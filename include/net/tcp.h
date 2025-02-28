@@ -2147,6 +2147,7 @@ extern void tcp_rack_update_reo_wnd(struct sock *sk, struct rate_sample *rs);
 /* State for PLB (Protective Load Balancing) for a single TCP connection. */
 struct tcp_plb_state {
 	u8	consec_cong_rounds:5, /* consecutive congested rounds */
+		enabled:1,	/* Check if PLB is enabled */
 		unused:3;
 	u32	pause_until; /* jiffies32 when PLB can resume rerouting */
 };
