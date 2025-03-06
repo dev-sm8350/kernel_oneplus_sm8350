@@ -71,6 +71,7 @@ struct oplus_te_refcount {
 };
 
 /* --------------- adfr misc ---------------*/
+struct dsi_panel;
 void oplus_adfr_init(struct dsi_panel *panel);
 inline bool oplus_adfr_is_support(void);
 ssize_t oplus_adfr_get_debug(struct kobject *obj,
