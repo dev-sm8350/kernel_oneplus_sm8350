@@ -26,8 +26,8 @@ struct crypto_scomp {
  * @base:	Common crypto API algorithm data structure
  */
 struct scomp_alg {
-	void *(*alloc_ctx)(struct crypto_scomp *tfm);
-	void (*free_ctx)(struct crypto_scomp *tfm, void *ctx);
+	void *(*alloc_ctx)(void);
+	void (*free_ctx)(void *ctx);
 	int (*compress)(struct crypto_scomp *tfm, const u8 *src,
 			unsigned int slen, u8 *dst, unsigned int *dlen,
 			void *ctx);
@@ -64,13 +64,13 @@ static inline struct scomp_alg *crypto_scomp_alg(struct crypto_scomp *tfm)
 
 static inline void *crypto_scomp_alloc_ctx(struct crypto_scomp *tfm)
 {
-	return crypto_scomp_alg(tfm)->alloc_ctx(tfm);
+	return crypto_scomp_alg(tfm)->alloc_ctx();
 }
 
 static inline void crypto_scomp_free_ctx(struct crypto_scomp *tfm,
 					 void *ctx)
 {
-	return crypto_scomp_alg(tfm)->free_ctx(tfm, ctx);
+	return crypto_scomp_alg(tfm)->free_ctx(ctx);
 }
 
 static inline int crypto_scomp_compress(struct crypto_scomp *tfm,

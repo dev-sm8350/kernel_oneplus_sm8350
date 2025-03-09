@@ -248,7 +248,7 @@ int  zip_comp_decompress(struct crypto_tfm *tfm,
 } /* Legacy compress framework end */
 
 /* SCOMP framework start */
-void *zip_alloc_scomp_ctx_deflate(struct crypto_scomp *tfm)
+void *zip_alloc_scomp_ctx_deflate(void)
 {
 	int ret;
 	struct zip_kernel_ctx *zip_ctx;
@@ -267,7 +267,7 @@ void *zip_alloc_scomp_ctx_deflate(struct crypto_scomp *tfm)
 	return zip_ctx;
 }
 
-void *zip_alloc_scomp_ctx_lzs(struct crypto_scomp *tfm)
+void *zip_alloc_scomp_ctx_lzs(void)
 {
 	int ret;
 	struct zip_kernel_ctx *zip_ctx;
@@ -286,7 +286,7 @@ void *zip_alloc_scomp_ctx_lzs(struct crypto_scomp *tfm)
 	return zip_ctx;
 }
 
-void zip_free_scomp_ctx(struct crypto_scomp *tfm, void *ctx)
+void zip_free_scomp_ctx(void *ctx)
 {
 	struct zip_kernel_ctx *zip_ctx = ctx;
 
