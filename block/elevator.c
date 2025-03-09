@@ -354,11 +354,9 @@ enum elv_merge elv_merge(struct request_queue *q, struct request **req,
  * we can append 'rq' to an existing request, so we can throw 'rq' away
  * afterwards.
  *
- * Returns true if we merged, false otherwise. 'free' will contain all
- * requests that need to be freed.
+ * Returns true if we merged, false otherwise
  */
-bool elv_attempt_insert_merge(struct request_queue *q, struct request *rq,
-			      struct list_head *free)
+bool elv_attempt_insert_merge(struct request_queue *q, struct request *rq)
 {
 	struct request *__rq;
 	bool ret;
@@ -369,10 +367,8 @@ bool elv_attempt_insert_merge(struct request_queue *q, struct request *rq,
 	/*
 	 * First try one-hit cache.
 	 */
-	if (q->last_merge && blk_attempt_req_merge(q, q->last_merge, rq)) {
-		list_add(&rq->queuelist, free);
+	if (q->last_merge && blk_attempt_req_merge(q, q->last_merge, rq))
 		return true;
-	}
 
 	if (blk_queue_noxmerges(q))
 		return false;
@@ -386,7 +382,6 @@ bool elv_attempt_insert_merge(struct request_queue *q, struct request *rq,
 		if (!__rq || !blk_attempt_req_merge(q, __rq, rq))
 			break;
 
-		list_add(&rq->queuelist, free);
 		/* The merged request could be merged with others, try again */
 		ret = true;
 		rq = __rq;
@@ -637,11 +632,7 @@ static struct elevator_type *elevator_get_default(struct request_queue *q)
 	if (q->nr_hw_queues != 1)
 		return NULL;
 
-#ifdef CONFIG_MQ_IOSCHED_SSG
-	return elevator_get(q, "ssg", false);
-#else
 	return elevator_get(q, "mq-deadline", false);
-#endif
 }
 
 /*
