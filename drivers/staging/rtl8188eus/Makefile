@@ -9,11 +9,9 @@ EXTRA_CFLAGS += -Wno-unused-function
 EXTRA_CFLAGS += -Wno-unused
 EXTRA_CFLAGS += -Wno-vla
 EXTRA_CFLAGS += -Wno-date-time
+EXTRA_CFLAGS += -Wno-missing-prototypes
+EXTRA_CFLAGS += -Wno-missing-declarations
 
-REDHAT_VER := $(shell cut -f4 -d" " /etc/redhat-release |cut -d"." -f1,2 )
-ifeq ($(REDHAT_VER), 7.9)
-EXTRA_CFLAGS += -DRHEL79
-endif
 
 GCC_VER_49 := $(shell echo `$(CC) -dumpversion | cut -f1-2 -d.` \>= 4.9 | bc )
 ifeq ($(GCC_VER_49),1)
@@ -2114,17 +2112,19 @@ config_r:
 .PHONY: modules clean
 
 clean:
-	#$(MAKE) -C $(KSRC) M=$(shell pwd) clean
-	cd hal ; rm -fr */*/*/*.mod.c */*/*/*.mod */*/*/*.o */*/*/.*.cmd */*/*/*.ko
-	cd hal ; rm -fr */*/*.mod.c */*/*.mod */*/*.o */*/.*.cmd */*/*.ko
-	cd hal ; rm -fr */*.mod.c */*.mod */*.o */.*.cmd */*.ko
-	cd hal ; rm -fr *.mod.c *.mod *.o .*.cmd *.ko
-	cd core ; rm -fr */*.mod.c */*.mod */*.o */.*.cmd */*.ko
-	cd core ; rm -fr *.mod.c *.mod *.o .*.cmd *.ko
-	cd os_dep/linux ; rm -fr *.mod.c *.mod *.o .*.cmd *.ko
-	cd os_dep ; rm -fr *.mod.c *.mod *.o .*.cmd *.ko
-	cd platform ; rm -fr *.mod.c *.mod *.o .*.cmd *.ko
-	rm -fr Module.symvers ; rm -fr Module.markers ; rm -fr modules.order
-	rm -fr *.mod.c *.mod *.o .*.cmd *.ko *~
-	rm -fr .tmp_versions
+	@#$(MAKE) -C $(KSRC) M=$(shell pwd) clean
+	@cd hal && rm -frv */*/*/*.mod.c */*/*/*.mod */*/*/*.o */*/*/.*.cmd */*/*/*.ko 2>/dev/null || true
+	@cd hal && rm -frv */*/*.mod.c */*/*.mod */*/*.o */*/.*.cmd */*/*.ko 2>/dev/null || true
+	@cd hal && rm -frv */*.mod.c */*.mod */*.o */.*.cmd */*.ko 2>/dev/null || true
+	@cd hal && rm -frv *.mod.c *.mod *.o .*.cmd *.ko 2>/dev/null || true
+	@cd core && rm -fr */*.mod.c */*.mod */*.o */.*.cmd */*.ko 2>/dev/null || true
+	@cd core && rm -fr *.mod.c *.mod *.o .*.cmd *.ko 2>/dev/null || true
+	@cd os_dep/linux && rm -fr *.mod.c *.mod *.o .*.cmd *.ko 2>/dev/null || true
+	@cd os_dep && rm -fr *.mod.c *.mod *.o .*.cmd *.ko 2>/dev/null || true
+	@cd platform && rm -fr *.mod.c *.mod *.o .*.cmd *.ko 2>/dev/null || true
+	@rm -frv Module.symvers 2>/dev/null || true
+	@rm -frv Module.markers 2>/dev/null || true
+	@rm -frv modules.order 2>/dev/null || true
+	@rm -frv *.mod.c *.mod *.o .*.cmd *.ko *~ 2>/dev/null || true
+	@rm -frv .tmp_versions 2>/dev/null || true
 endif
