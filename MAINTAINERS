@@ -3669,6 +3669,7 @@ F:	include/linux/can/skb.h
 F:	include/net/netns/can.h
 F:	include/uapi/linux/can.h
 F:	include/uapi/linux/can/bcm.h
+F:	include/uapi/linux/can/isotp.h
 F:	include/uapi/linux/can/raw.h
 F:	include/uapi/linux/can/gw.h
 
