@@ -19,7 +19,11 @@ EXTRA_CFLAGS += -Wno-implicit-fallthrough
 
 EXTRA_CFLAGS += -Wno-date-time
 
-EXTRA_CFLAGS += -I$(src)/include
+EXTRA_CFLAGS += -I../include -I$(srctree)/drivers/staging/rtl8814au/include
+EXTRA_CFLAGS += -I../hal/phydm/halrf -I$(srctree)/drivers/staging/rtl8814au/hal/phydm/halrf
+EXTRA_CFLAGS += -I../hal/phydm -I$(srctree)/drivers/staging/rtl8814au/hal/phydm
+EXTRA_CFLAGS += -I../platform -I$(srctree)/drivers/staging/rtl8814au/platform
+
 EXTRA_LDFLAGS += --strip-debug
 
 CONFIG_AUTOCFG_CP = n
