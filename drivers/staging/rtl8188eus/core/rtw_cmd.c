@@ -1319,7 +1319,7 @@ static void rtw_ft_validate_akm_type(_adapter  *padapter,
 	u32 tmp_len;
 	u8 *ptmp;
 
-	/*IEEE802.11-2012 Std. Table 8-101¡XAKM suite selectors*/
+	/*IEEE802.11-2012 Std. Table 8-101ï¿½XAKM suite selectors*/
 	if (rtw_ft_valid_akm(padapter, psecuritypriv->rsn_akm_suite_type)) {
 		ptmp = rtw_get_ie(&pnetwork->network.IEs[12], 
 				_MDIE_, &tmp_len, (pnetwork->network.IELength-12));

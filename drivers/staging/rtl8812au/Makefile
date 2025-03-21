@@ -19,7 +19,11 @@ EXTRA_CFLAGS += -Wno-unknown-pragmas
 EXTRA_CFLAGS += -Wno-address
 EXTRA_CFLAGS += -Wno-vla -g
 
-EXTRA_CFLAGS += -I$(src)/include -I$(srctree)/$(src)/include
+EXTRA_CFLAGS += -I../include -I$(srctree)/drivers/staging/rtl8812au/include
+EXTRA_CFLAGS += -I../hal/phydm/halrf -I$(srctree)/drivers/staging/rtl8812au/hal/phydm/halrf
+EXTRA_CFLAGS += -I../hal/phydm -I$(srctree)/drivers/staging/rtl8812au/hal/phydm
+EXTRA_CFLAGS += -I../platform -I$(srctree)/drivers/staging/rtl8812au/platform
+
 EXTRA_CFLAGS += -I$(src)/hal/phydm -I$(srctree)/$(src)/hal/phydm
 EXTRA_LDFLAGS += --strip-all -O3
 
