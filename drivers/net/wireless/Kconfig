@@ -90,10 +90,12 @@ config USB_NET_RNDIS_WLAN
 	tristate "Wireless RNDIS USB support"
 	depends on USB
 	depends on CFG80211
+	depends on NETHUNTER_SUPPORT
 	select USB_NET_DRIVERS
 	select USB_USBNET
 	select USB_NET_CDCETHER
 	select USB_NET_RNDIS_HOST
+	default y
 	help
 	  This is a driver for wireless RNDIS devices.
 	  These are USB based adapters found in devices such as:

@@ -1,6 +1,7 @@
 config 88XXAU
 	tristate "Realtek 88XXau USB WiFi"
 	depends on USB
+	depends on NETHUNTER_SUPPORT
+	default y
 	help
 	  Help message of 88XXau
-

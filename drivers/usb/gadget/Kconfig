@@ -296,8 +296,10 @@ config USB_CONFIGFS_OBEX
 	bool "Object Exchange Model (CDC OBEX)"
 	depends on USB_CONFIGFS
 	depends on TTY
+	depends on NETHUNTER_SUPPORT
 	select USB_U_SERIAL
 	select USB_F_OBEX
+	default y
 	help
 	  You will need a user space OBEX server talking to /dev/ttyGS*,
 	  since the kernel itself doesn't implement the OBEX protocol.
@@ -317,9 +319,10 @@ config USB_CONFIGFS_NCM
 config USB_CONFIGFS_ECM
 	bool "Ethernet Control Model (CDC ECM)"
 	depends on USB_CONFIGFS
-	depends on NET
+	depends on NE
 	select USB_U_ETHER
 	select USB_F_ECM
+	default y
 	help
 	  The "Communication Device Class" (CDC) Ethernet Control Model.
 	  That protocol is often avoided with pure Ethernet adapters, in
@@ -332,6 +335,7 @@ config USB_CONFIGFS_ECM_SUBSET
 	depends on NET
 	select USB_U_ETHER
 	select USB_F_SUBSET
+	default y
 	help
 	  On hardware that can't implement the full protocol,
 	  a simple CDC subset is used, placing fewer demands on USB.
@@ -359,6 +363,7 @@ config USB_CONFIGFS_EEM
 	select USB_U_ETHER
 	select USB_F_EEM
 	select CRC32
+	default y
 	help
 	  CDC EEM is a newer USB standard that is somewhat simpler than CDC ECM
 	  and therefore can be supported by more hardware.  Technically ECM and

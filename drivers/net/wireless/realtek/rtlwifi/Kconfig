@@ -109,9 +109,11 @@ config RTL8821AE
 config RTL8192CU
 	tristate "Realtek RTL8192CU/RTL8188CU USB Wireless Network Adapter"
 	depends on USB
+	depends on NETHUNTER_SUPPORT
 	select RTLWIFI
 	select RTLWIFI_USB
 	select RTL8192C_COMMON
+	default y
 	---help---
 	This is the driver for Realtek RTL8192CU/RTL8188CU 802.11n USB
 	wireless network adapters.

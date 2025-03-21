@@ -9,6 +9,7 @@ config MAC80211
 	select CRYPTO_GCM
 	select CRYPTO_CMAC
 	select CRC32
+	default y
 	---help---
 	  This option enables the hardware independent IEEE 802.11
 	  networking stack.
@@ -60,6 +61,7 @@ comment "Some wireless drivers require a rate control algorithm"
 config MAC80211_MESH
 	bool "Enable mac80211 mesh networking support"
 	depends on MAC80211
+	default y
 	---help---
 	  Select this option to enable 802.11 mesh operation in mac80211
 	  drivers that support it.  802.11 mesh connects multiple stations

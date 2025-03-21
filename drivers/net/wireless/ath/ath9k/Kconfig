@@ -21,11 +21,13 @@ config ATH9K_BTCOEX_SUPPORT
 config ATH9K
 	tristate "Atheros 802.11n wireless cards support"
 	depends on MAC80211 && HAS_DMA
+	depends on NETHUNTER_SUPPORT
 	select ATH9K_HW
 	select MAC80211_LEDS
 	select LEDS_CLASS
 	select NEW_LEDS
 	select ATH9K_COMMON
+	default y
 	---help---
 	  This module adds support for wireless adapters based on
 	  Atheros IEEE 802.11n AR5008, AR9001 and AR9002 family

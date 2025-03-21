@@ -15,9 +15,11 @@ if WLAN_VENDOR_ZYDAS
 config USB_ZD1201
 	tristate "USB ZD1201 based Wireless device support"
 	depends on CFG80211 && USB
+	depends on NETHUNTER_SUPPORT
 	select WIRELESS_EXT
 	select WEXT_PRIV
 	select FW_LOADER
+	default y
 	---help---
 	  Say Y if you want to use wireless LAN adapters based on the ZyDAS
 	  ZD1201 chip.
