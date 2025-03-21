@@ -196,7 +196,9 @@ config CFG80211_WEXT
 	  extensions with cfg80211-based drivers.
 
 config CFG80211_WEXT_EXPORT
-	bool
+	bool "Export cfg80211 Wireless Extensions compatibility"
+	depends on NETHUNTER_SUPPORT
+	default y
 	help
 	  Drivers should select this option if they require cfg80211's
 	  wext compatibility symbols to be exported.

@@ -2,6 +2,8 @@
 config MT76x2_COMMON
 	tristate
 	select MT76x02_LIB
+	depends on NETHUNTER_SUPPORT
+	default y
 
 config MT76x2E
 	tristate "MediaTek MT76x2E (PCIe) support"
@@ -21,6 +23,8 @@ config MT76x2U
 	select MT76x02_USB
 	depends on MAC80211
 	depends on USB
+	depends on NETHUNTER_SUPPORT
+	default y
 	help
 	  This adds support for MT7612U-based wireless USB 3.0 dongles,
 	  which comply with IEEE 802.11ac standards and support 2SS to

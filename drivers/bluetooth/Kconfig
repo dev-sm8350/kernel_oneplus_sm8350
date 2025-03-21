@@ -22,7 +22,9 @@ config BT_QCA
 config BT_HCIBTUSB
 	tristate "HCI USB driver"
 	depends on USB
+	depends on NETHUNTER_SUPPORT
 	select BT_INTEL
+	default y
 	help
 	  Bluetooth HCI USB driver.
 	  This driver is required if you want to use Bluetooth devices with
@@ -34,6 +36,7 @@ config BT_HCIBTUSB
 config BT_HCIBTUSB_AUTOSUSPEND
 	bool "Enable USB autosuspend for Bluetooth USB devices by default"
 	depends on BT_HCIBTUSB
+	default y
 	help
 	  Say Y here to enable USB autosuspend for Bluetooth USB devices by
 	  default.
@@ -90,6 +93,8 @@ config BT_HCIUART
 	depends on SERIAL_DEV_BUS || !SERIAL_DEV_BUS
 	depends on NVMEM || !NVMEM
 	depends on TTY
+	depends on NETHUNTER_SUPPORT
+	default y
 	help
 	  Bluetooth HCI UART driver.
 	  This driver is required if you want to use Bluetooth devices with
@@ -108,6 +113,7 @@ config BT_HCIUART_SERDEV
 config BT_HCIUART_H4
 	bool "UART (H4) protocol support"
 	depends on BT_HCIUART
+	default y
 	help
 	  UART (H4) is serial protocol for communication between Bluetooth
 	  device and host. This protocol is required for most Bluetooth devices
@@ -261,6 +267,8 @@ config BT_HCIBCM203X
 	tristate "HCI BCM203x USB driver"
 	depends on USB
 	select FW_LOADER
+	depends on NETHUNTER_SUPPORT
+	default y
 	help
 	  Bluetooth HCI BCM203x USB driver.
 	  This driver provides the firmware loading mechanism for the Broadcom
@@ -272,6 +280,8 @@ config BT_HCIBCM203X
 config BT_HCIBPA10X
 	tristate "HCI BPA10x USB driver"
 	depends on USB
+	depends on NETHUNTER_SUPPORT
+	default y
 	help
 	  Bluetooth HCI BPA10x USB driver.
 	  This driver provides support for the Digianswer BPA 100/105 Bluetooth
@@ -284,6 +294,8 @@ config BT_HCIBFUSB
 	tristate "HCI BlueFRITZ! USB driver"
 	depends on USB
 	select FW_LOADER
+	depends on NETHUNTER_SUPPORT
+	default y
 	help
 	  Bluetooth HCI BlueFRITZ! USB driver.
 	  This driver provides support for Bluetooth USB devices with AVM
@@ -335,6 +347,8 @@ config BT_HCIBLUECARD
 
 config BT_HCIVHCI
 	tristate "HCI VHCI (Virtual HCI device) driver"
+	depends on NETHUNTER_SUPPORT
+	default y
 	help
 	  Bluetooth Virtual HCI device driver.
 	  This driver is required if you want to use HCI Emulation software.

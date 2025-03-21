@@ -2,6 +2,8 @@
 config ATH6KL
 	tristate "Atheros mobile chipsets support"
 	depends on CFG80211
+	depends on NETHUNTER_SUPPORT
+	default y
 	---help---
 	  This module adds core support for wireless adapters based on
 	  Atheros AR6003 and AR6004 chipsets. You still need separate
@@ -26,6 +28,7 @@ config ATH6KL_USB
 	tristate "Atheros ath6kl USB support"
 	depends on ATH6KL
 	depends on USB
+	default y
 	---help---
 	  This module adds support for wireless adapters based on
 	  Atheros AR6004 chipset and chipsets based on it running over

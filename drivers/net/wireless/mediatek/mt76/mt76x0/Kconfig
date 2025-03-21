@@ -9,6 +9,8 @@ config MT76x0U
 	select MT76x02_USB
 	depends on MAC80211
 	depends on USB
+	depends on NETHUNTER_SUPPORT
+	default y
 	help
 	  This adds support for MT7610U-based wireless USB 2.0 dongles,
 	  which comply with IEEE 802.11ac standards and support 1x1

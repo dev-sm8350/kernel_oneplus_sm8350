@@ -2,5 +2,7 @@
 config USB_MSI2500
 	tristate "Mirics MSi2500"
 	depends on VIDEO_V4L2 && SPI
+	depends on NETHUNTER_SUPPORT
 	select VIDEOBUF2_VMALLOC
 	select MEDIA_TUNER_MSI001
+	default y
