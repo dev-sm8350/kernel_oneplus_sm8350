@@ -761,7 +761,7 @@ static void can327_parse_rxbuf(struct can327 *elm, size_t first_new_char_idx)
  * Fixed in v5.10 - 728fc9ff73d3
  */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5,5,0)
-static unsigned int *can327_mailbox_read(struct can_rx_offload *offload,
+static unsigned int can327_mailbox_read(struct can_rx_offload *offload,
 					 struct can_frame *cf,
 					 u32 *timestamp, unsigned int n)
 {
