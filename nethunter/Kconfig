@@ -334,6 +334,10 @@ config NETHUNTER_USB_SUPPORT
 
 	select USB_SERIAL
 
+	select USB_SERIAL_CONSOLE
+
+	select USB_SERIAL_GENERIC
+
 	select USB_SERIAL_CH341
 
 	select USB_SERIAL_CP210X
@@ -359,6 +363,14 @@ config NETHUNTER_USB_SUPPORT
 	select USB_CONFIGFS_EEM
 
 	select USB_CONFIGFS_MASS_STORAGE
+
+	select USBIP_CORE
+
+	select USBIP_VHCI_HCD
+	
+	select USBIP_HOST
+	
+	select USBIP_VUDC
 
 
 config NETHUNTER_WIFI_DRIVERS_SUPPORT
@@ -430,5 +442,71 @@ config NETHUNTER_WIFI_DRIVERS_SUPPORT
 	select ZD1211RW
 
 	select USB_NET_RNDIS_WLAN
+
+
+config NETHUNTER_CAN_SUPPORT
+
+	tristate "CAN support"
+
+        default y if NETHUNTER_SUPPORT
+
+        depends on NETHUNTER_SUPPORT
+
+        help
+		To use CAN Arsenal you will need CAN support. Please note that CAN Arsenal is in experimental version.
+
+	select CAN
+
+	select CAN_ISOTP
+
+	select CAN_CAN327
+
+	select QTI_CAN
+
+	select CAN_VCAN
+
+	select CAN_VXCAN
+
+	select CAN_SLCAN
+
+	select CAN_GRCAN
+
+	select CAN_XILINXCAN
+
+	select CAN_C_CAN
+
+	select CAN_CC770
+
+	select CAN_IFI_CANFD
+
+	select CAN_M_CAN
+
+	select CAN_PEAK_PCIEFD
+
+	select CAN_SJA1000
+
+	select CAN_SOFTING
+
+	select CAN_HI311X
+
+	select CAN_MCP251X
+
+	select CAN_8DEV_USB
+
+	select CAN_EMS_USB
+
+	select CAN_ESD_USB2
+
+	select CAN_GS_USB
+
+	select CAN_KVASER_USB
+
+	select CAN_MCBA_USB
+
+	select CAN_PEAK_USB
+
+	select CAN_UCAN
+
+	select NET_EMATCH_CANID
 
 endmenu
