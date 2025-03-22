@@ -7,8 +7,6 @@
 #define __LINUX_BLUETOOTH_POWER_H
 
 #include <linux/types.h>
-#include <linux/mailbox_client.h>
-#include <linux/mailbox/qmp.h>
 
 /*
  * voltage regulator information required for configuring the
@@ -18,6 +16,14 @@ enum bt_power_modes {
 	BT_POWER_DISABLE = 0,
 	BT_POWER_ENABLE,
 	BT_POWER_RETENTION
+};
+
+/* Hasting chipset version information */
+enum {
+	HASTINGS_SOC_ID_0100 = 0x400A0100,
+	HASTINGS_SOC_ID_0101 = 0x400A0101,
+	HASTINGS_SOC_ID_0110 = 0x400A0110,
+	HASTINGS_SOC_ID_0200 = 0x400A0200,
 };
 
 struct log_index {
@@ -48,30 +54,30 @@ struct bt_power_clk_data {
 	bool is_enabled;  /* is this clock enabled? */
 };
 
+struct btpower_tcs_table_info {
+	resource_size_t tcs_cmd_base_addr;
+	void __iomem *tcs_cmd_base_addr_io;
+};
 /*
  * Platform data for the bluetooth power driver.
  */
-struct btpower_platform_data {
-	struct platform_device *pdev;
+struct bluetooth_power_platform_data {
 	int bt_gpio_sys_rst;                   /* Bluetooth reset gpio */
 	int wl_gpio_sys_rst;                   /* Wlan reset gpio */
 	int bt_gpio_sw_ctrl;                   /* Bluetooth sw_ctrl gpio */
 	int bt_gpio_debug;                     /* Bluetooth debug gpio */
-	int xo_gpio_clk;                       /* XO clock gpio*/
+	int xo_gpio_sys_rst;                    /* XO reset gpio*/
 	struct device *slim_dev;
 	struct bt_power_vreg_data *vreg_info;  /* VDDIO voltage regulator */
 	struct bt_power_clk_data *bt_chip_clk; /* bluetooth reference clock */
 	int (*bt_power_setup)(int id); /* Bluetooth power setup function */
 	char compatible[32]; /*Bluetooth SoC name */
 	int num_vregs;
-	struct mbox_client mbox_client_data;
-	struct mbox_chan *mbox_chan;
-	const char *vreg_ipa;
+	struct btpower_tcs_table_info tcs_table_info;
 };
 
 int btpower_register_slimdev(struct device *dev);
 int btpower_get_chipset_version(void);
-int btpower_aop_mbox_init(struct btpower_platform_data *pdata);
 
 #define BT_CMD_SLIM_TEST		0xbfac
 #define BT_CMD_PWR_CTRL			0xbfad
@@ -80,5 +86,7 @@ int btpower_aop_mbox_init(struct btpower_platform_data *pdata);
 #define BT_CMD_CHECK_SW_CTRL	0xbfb0
 #define BT_CMD_GETVAL_POWER_SRCS	0xbfb1
 #define BT_CMD_SET_IPA_TCS_INFO  0xbfc0
+
+#define TCS_CMD_IO_ADDR_OFFSET 0x4
 
 #endif /* __LINUX_BLUETOOTH_POWER_H */
