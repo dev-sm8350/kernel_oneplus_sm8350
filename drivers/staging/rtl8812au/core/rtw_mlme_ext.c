@@ -1971,6 +1971,12 @@ unsigned int OnBeacon(_adapter *padapter, union recv_frame *precv_frame)
 #if 0 /* move to validate_recv_mgnt_frame */
 				psta->sta_stats.rx_mgnt_pkts++;
 #endif
+
+#if defined(CONFIG_IOCTL_CFG80211)
+				rtw_cfg80211_cqm_rssi_update(
+					padapter,
+					pmlmepriv->cur_network_scanned->network.Rssi);
+#endif
 			}
 
 		} else if ((pmlmeinfo->state & 0x03) == WIFI_FW_ADHOC_STATE) {
@@ -13941,13 +13947,13 @@ u8 createbss_hdl(_adapter *padapter, u8 *pbuf)
 		flush_all_cam_entry(padapter);
 
 		pdev_network->Length = get_WLAN_BSSID_EX_sz(pdev_network);
-		_rtw_memcpy(pnetwork, pdev_network, FIELD_OFFSET(WLAN_BSSID_EX, IELength));
-		pnetwork->IELength = pdev_network->IELength;
-
-		if (pnetwork->IELength > MAX_IE_SZ) {
+		if (FIELD_OFFSET(WLAN_BSSID_EX, IELength) > MAX_IE_SZ) {
 			ret = H2C_PARAMETERS_ERROR;
 			goto ibss_post_hdl;
 		}
+
+		memcpy(pnetwork, pdev_network, FIELD_OFFSET(WLAN_BSSID_EX, IELength));
+		pnetwork->IELength = pdev_network->IELength;
 
 		_rtw_memcpy(pnetwork->IEs, pdev_network->IEs, pnetwork->IELength);
 		start_create_ibss(padapter);
