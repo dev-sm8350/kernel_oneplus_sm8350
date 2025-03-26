@@ -798,7 +798,7 @@ __inline static u8 *recvframe_pull_tail(union recv_frame *precvframe, sint sz)
 
 __inline static _buffer *get_rxbuf_desc(union recv_frame *precvframe)
 {
-	_buffer *buf_desc;
+	_buffer *buf_desc = NULL;
 
 	if (precvframe == NULL)
 		return NULL;
@@ -823,7 +823,7 @@ __inline static union recv_frame *rxmem_to_recvframe(u8 *rxmem)
 __inline static union recv_frame *pkt_to_recvframe(_pkt *pkt)
 {
 
-	u8 *buf_star;
+	u8 *buf_star = NULL;
 	union recv_frame *precv_frame;
 #ifdef PLATFORM_WINDOWS
 	_buffer *buf_desc;

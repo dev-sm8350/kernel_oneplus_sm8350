@@ -2575,8 +2575,8 @@ u8 config_phydm_read_txagc_n(void *dm_void, enum rf_path path, u8 hw_rate)
 {
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
 	u8 read_back_data = INVALID_TXAGC_DATA;
-	u32 reg_txagc;
-	u32 reg_mask;
+	u32 reg_txagc = 0;
+	u32 reg_mask = 0;
 	/* This function is for 92E/88E etc... */
 	/* @Input need to be HW rate index, not driver rate index!!!! */
 
