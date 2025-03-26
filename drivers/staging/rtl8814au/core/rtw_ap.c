@@ -4395,7 +4395,7 @@ static u8 rtw_ap_update_chbw_by_ifbmp(struct dvobj_priv *dvobj, u8 ifbmp
 	int i;
 
 	for (i = 0; i < dvobj->iface_nums; i++) {
-		if (!(ifbmp & BIT(i)) || !dvobj->padapters)
+		if (!(ifbmp & BIT(i)) || !dvobj || !dvobj->padapters)
 			continue;
 
 		iface = dvobj->padapters[i];
@@ -4415,7 +4415,7 @@ static u8 rtw_ap_update_chbw_by_ifbmp(struct dvobj_priv *dvobj, u8 ifbmp
 	}
 
 	for (i = 0; i < dvobj->iface_nums; i++) {
-		if (!(ifbmp & BIT(i)) || !dvobj->padapters)
+		if (!(ifbmp & BIT(i)) || !dvobj || !dvobj->padapters)
 			continue;
 
 		iface = dvobj->padapters[i];
