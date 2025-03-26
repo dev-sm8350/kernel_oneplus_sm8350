@@ -469,9 +469,9 @@ u8 rtw_cfg80211_ch_switch_notify(_adapter *adapter, u8 ch, u8 bw, u8 offset,
 	}
 #endif
 
-    if (!rtw_cfg80211_allow_ch_switch_notify(adapter))
-        	goto exit;
-		cfg80211_ch_switch_notify(adapter->pnetdev, &chdef);
+	if (!rtw_cfg80211_allow_ch_switch_notify(adapter))
+		goto exit;
+	cfg80211_ch_switch_notify(adapter->pnetdev, &chdef);
 
 #else
 	int freq = rtw_ch2freq(ch);
