@@ -1,0 +1,9 @@
+config HLCAN
+	tristate "HLCAN module for usb-can"
+	depends on USB
+	depends on NETHUNTER_SUPPORT
+	default n
+	help
+		Help message hlcan - select m to build as module.
+		This module cannot be used with slcan.
+		Ensure the module is not loaded and will not be loaded automatically!
