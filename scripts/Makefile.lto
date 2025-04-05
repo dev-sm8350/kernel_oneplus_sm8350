@@ -53,9 +53,9 @@ endif # CONFIG_LTO_GCC
 
 ifdef CONFIG_LTO_GCC
 	# print only once
-ifeq ($(LTO_MESSAGE),)
+ifeq ($(LTO_MESSAGE),1)
         $(info Enabling full GCC LTO)
-        LTO_MESSAGE := 1
+        LTO_MESSAGE := 0
 endif
 
 	LTO_CFLAGS := -flto
