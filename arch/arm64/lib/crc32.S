@@ -8,7 +8,7 @@
 #include <linux/linkage.h>
 #include <asm/assembler.h>
 
-	.arch		armv8-a+crc
+	.cpu		generic+crc
 
 	.macro		bitle, reg
 	.endm
