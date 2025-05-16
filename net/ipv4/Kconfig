@@ -446,7 +446,7 @@ config INET_UDP_DIAG
 config INET_RAW_DIAG
 	tristate "RAW: socket monitoring interface"
 	depends on INET_DIAG && (IPV6 || IPV6=n)
-	default n
+	default y
 	---help---
 	  Support for RAW socket monitoring interface used by the ss tool.
 	  If unsure, say Y.
