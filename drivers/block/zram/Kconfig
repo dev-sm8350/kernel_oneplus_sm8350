@@ -45,7 +45,7 @@ config ZRAM_DEFAULT_COMP_ALGORITHM
 
 config ZRAM_SIZE_OVERRIDE_ENABLE
     bool "Enable overriding zram size from kernel command line"
-    default n
+    default y
     help
       Say yes here to allow specifying the zram disk size directly
       via the 'zram.size' kernel command line parameter, multiplied
@@ -55,7 +55,7 @@ config ZRAM_SIZE_OVERRIDE_ENABLE
 config ZRAM_SIZE_OVERRIDE
     int "zram size multiplier (in GB)"
     range 1 8
-    default 4
+    default 6
     depends on ZRAM_SIZE_OVERRIDE_ENABLE
     help
       Specify the multiplier (in Gigabytes) to use when overriding
