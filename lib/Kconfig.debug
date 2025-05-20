@@ -277,7 +277,7 @@ config GDB_SCRIPTS
 
 config ENABLE_MUST_CHECK
 	bool "Enable __must_check logic"
-	default y
+	default n
 	help
 	  Enable the __must_check logic in the kernel build.  Disable this to
 	  suppress the "warning: ignoring return value of 'foo', declared with
