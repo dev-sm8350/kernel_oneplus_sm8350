@@ -255,7 +255,7 @@ msg $green "|| Cloning Toolchain ||" $white
 
 	#  CLANG
 	# Define the default Clang version (options: weebx, llvm)
-	CLANG_DEFAULT="weebx"
+	CLANG_DEFAULT="llvm"
 
 	# Ask the user to choose if the CLANG_VERSION directory does not exist
 	if [[ ! -d "$CLANG_VERSION" ]]; then
@@ -384,7 +384,7 @@ fi
 ANYKERNEL3_VERSION="AnyKernel3"
 
 # Define the default AK3 version
-AK3_DEFAULT="11"
+AK3_DEFAULT="12"
 
 msg $green "|| Cloning AnyKernel3 ||" $white
 
@@ -404,7 +404,8 @@ echo "7. McQ-KSU-Legacy"
 echo "8. McQ-veux"
 echo "9. McQ-KSU-veux"
 echo "10. Nebula"
-echo -e "11. Nebula-KSU\n${white}"
+echo "11. Nebula-KSU"
+echo -e "12. test\n${white}"
 
 #if [[ $GCC_VERSION =~ "gcc" ]]; then
 #        choice=4
@@ -450,6 +451,9 @@ read -t 5 -p "Enter your choice [1-7]: " choice || {
             ;;
         11)
             git clone --depth=1 https://github.com/dev-sm8350/AnyKernel3 -b Nebula-KSU "${ANYKERNEL3_VERSION}"
+            ;;
+        12)
+            git clone --depth=1 https://github.com/dev-sm8350/AnyKernel3 -b test "${ANYKERNEL3_VERSION}"
             ;;
         *)
             echo "Invalid choice, please try again."
@@ -836,6 +840,25 @@ zipper()
 	cd "$AK3_DIR" || exit
 	#make clean
 	cd "$KERNEL_DIR" || exit
+
+	# Cmdline to veux
+	if [[ "$CODENAME" = "veux" ]]; then
+        echo -e "${yellow}Creating AnyKernel3 cmdline file for 'veux' device...${NC}"
+        cat <<EOF > "$AK3_DIR"/cmdline
+androidboot.hardware=qcom
+lpm_levels.sleep_disabled=1
+service_locator.enable=1
+androidboot.usbcontroller=4e00000.dwc3
+swiotlb=noforce
+loop.max_part=7
+iptable_raw.raw_before_defrag=1
+ip6table_raw.raw_before_defrag=1
+buildvariant=user
+EOF
+    else
+        echo -e "${yellow}Skipping AnyKernel3 cmdline file creation (not 'veux' device).${NC}"
+    fi
+	# End cmdline to veux
 
 	mv -f "$KERNEL_DIR"/work/"$TARGET" "$DTBO_PATH"/*.img "$AK3_DIR" # Move kernel image and DTBO(s) to AnyKernel3
 	rm -f "$AK3_DIR"/dtb.img # Remove any existing dtb.img in AnyKernel3
