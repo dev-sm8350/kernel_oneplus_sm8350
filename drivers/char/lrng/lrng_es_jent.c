@@ -328,18 +328,6 @@ static int __init lrng_jent_initialize(void)
 	lrng_jent_initialized = true;
 	pr_debug("Jitter RNG working on current system\n");
 
-	/*
-	 * In FIPS mode, the Jitter RNG is defined to have full of entropy
-	 * unless a different value has been specified at the command line
-	 * (i.e. the user overrides the default), and the default value is
-	 * larger than zero (if it is zero, it is assumed that an RBG2(P) or
-	 * RBG2(NP) construction is attempted that intends to exclude the
-	 * Jitter RNG).
-	 */
-	if (fips_enabled && CONFIG_LRNG_JENT_ENTROPY_RATE > 0 &&
-	    jent_entropy == CONFIG_LRNG_JENT_ENTROPY_RATE)
-		jent_entropy = LRNG_DRNG_SECURITY_STRENGTH_BITS;
-
 	if (jent_entropy)
 		lrng_force_fully_seeded();
 
