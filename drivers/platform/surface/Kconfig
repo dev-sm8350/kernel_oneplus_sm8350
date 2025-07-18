@@ -5,7 +5,7 @@
 
 menuconfig SURFACE_PLATFORMS
 	bool "Microsoft Surface Platform-Specific Device Drivers"
-	default y
+	default n
 	help
 	  Say Y here to get to see options for platform-specific device drivers
 	  for Microsoft Surface devices. This option alone does not add any
