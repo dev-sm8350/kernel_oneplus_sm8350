@@ -295,12 +295,10 @@ static irqreturn_t tcs_tx_done(int irq, void *p)
 			       "IRQ response: m=%d err=%d", i, err);
 
 		/*
-		 * if wake tcs was re-purposed for sending active
-		 * votes, clear AMC trigger & enable modes and
+		/* Clear AMC trigger & enable modes and
 		 * disable interrupt for this TCS
 		 */
-		if (!drv->tcs[ACTIVE_TCS].num_tcs) {
-			__tcs_trigger(drv, i, false);
+		__tcs_set_trigger(drv, i, false);
 			/*
 			 * Disable interrupt for this TCS to avoid being
 			 * spammed with interrupts coming when the solver
